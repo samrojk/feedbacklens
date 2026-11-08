@@ -5,6 +5,8 @@ import { z } from "zod";
 const signupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
+  fullName: z.string().trim().min(2).max(100).optional(),
+  workspaceName: z.string().trim().min(2).max(100).optional(),
 });
 
 export async function POST(request: Request) {
@@ -17,19 +19,25 @@ export async function POST(request: Request) {
         {
           success: false,
           error:
-            "Invalid email or password. Password must be at least 8 characters.",
+            "Invalid signup details. Password must be at least 8 characters.",
         },
         { status: 400 },
       );
     }
 
+    const { email, password, fullName, workspaceName } = parsed.data;
+
     const supabase = await createClient();
 
     const { data, error } = await supabase.auth.signUp({
-      email: parsed.data.email,
-      password: parsed.data.password,
+      email,
+      password,
       options: {
         emailRedirectTo: `${new URL(request.url).origin}/auth/callback`,
+        data: {
+          full_name: fullName ?? "",
+          workspace_name: workspaceName ?? "",
+        },
       },
     });
 
