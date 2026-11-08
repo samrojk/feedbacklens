@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase/server";
+import { getUserWorkspace } from "@/lib/supabase/get-workspace";
 
 interface RouteContext {
   params: Promise<{
@@ -9,17 +10,19 @@ interface RouteContext {
 
 export async function GET(_request: NextRequest, { params }: RouteContext) {
   try {
-    const { analysisId } = await params;
-    const workspaceId = process.env.FEEDBACKLENS_WORKSPACE_ID;
+    // 1. Resolve authenticated user's workspace
+    const result = await getUserWorkspace();
 
-    if (!workspaceId) {
+    if (!result.success) {
       return NextResponse.json(
-        { success: false, error: "Workspace configuration missing" },
-        { status: 500 },
+        { success: false, error: result.error },
+        { status: result.status },
       );
     }
 
-    // Validate analysis UUID
+    const { analysisId } = await params;
+
+    // 2. Validate UUID
     const uuidRegex =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -30,12 +33,12 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
       );
     }
 
-    // 1. Fetch analysis, restricted to the configured workspace
+    // 3. Fetch analysis only from user's workspace
     const { data: analysis, error: analysisError } = await supabase
       .from("analyses")
       .select("*")
       .eq("id", analysisId)
-      .eq("workspace_id", workspaceId)
+      .eq("workspace_id", result.workspaceId)
       .maybeSingle();
 
     if (analysisError) throw analysisError;
@@ -47,7 +50,7 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
       );
     }
 
-    // 2. Fetch feedback entries
+    // 4. Fetch feedback
     const { data: feedback, error: feedbackError } = await supabase
       .from("feedback_entries")
       .select("*")
@@ -56,7 +59,7 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
 
     if (feedbackError) throw feedbackError;
 
-    // 3. Fetch issue clusters
+    // 5. Fetch issue clusters
     const { data: clusters, error: clusterError } = await supabase
       .from("issue_clusters")
       .select("*")
@@ -65,7 +68,7 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
 
     if (clusterError) throw clusterError;
 
-    // 4. Fetch cluster-feedback relationships
+    // 6. Fetch cluster-feedback relationships
     const clusterIds = clusters.map((cluster) => cluster.id);
 
     let links: { cluster_id: string; feedback_id: string }[] = [];
@@ -81,7 +84,7 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
       links = data;
     }
 
-    // 5. Attach feedback entries to their respective clusters
+    // 7. Attach feedback to clusters
     const feedbackMap = new Map(feedback.map((entry) => [entry.id, entry]));
 
     const issueClusters = clusters.map((cluster) => {
@@ -97,9 +100,9 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
       };
     });
 
-    // 6. Return complete analysis
     return NextResponse.json({
       success: true,
+      workspace: result.workspace,
       data: {
         analysis,
         summary: {
@@ -114,10 +117,7 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
     console.error("Analysis retrieval failed:", error);
 
     return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to retrieve analysis",
-      },
+      { success: false, error: "Failed to retrieve analysis" },
       { status: 500 },
     );
   }

@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase/server";
 import { persistIssueClusters } from "@/lib/supabase/clusters";
 import type { ParsedFeedback } from "@/lib/csv/parser";
 import type { FeedbackAnalysis } from "@/lib/validations/feedback";
+import { getUserWorkspace } from "@/lib/supabase/get-workspace";
 
 interface PersistAnalysisInput {
   feedback: ParsedFeedback[];
@@ -16,11 +17,13 @@ export async function persistAnalysis({
   analysis,
   title,
 }: PersistAnalysisInput) {
-  const workspaceId = process.env.FEEDBACKLENS_WORKSPACE_ID;
+  const workspaceResult = await getUserWorkspace();
 
-  if (!workspaceId) {
-    throw new Error("FEEDBACKLENS_WORKSPACE_ID is missing");
+  if (!workspaceResult.success) {
+    throw new Error(workspaceResult.error);
   }
+
+  const workspaceId = workspaceResult.workspaceId;
 
   // 1. Create the analysis record
   const { data: record, error: createError } = await supabase
