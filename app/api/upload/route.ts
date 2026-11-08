@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { persistAnalysis } from "@/lib/supabase/persist";
 import { parseFeedbackCSV } from "@/lib/csv/parser";
 import { analyzeFeedback } from "@/lib/ai/analyze";
 
@@ -90,7 +91,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 6. Preserve original feedback sources
+    // 6. Save analysis and feedback to Supabase
+    const { analysisId } = await persistAnalysis({
+      feedback: result.data,
+      analysis,
+      title: file.name.replace(/\.csv$/i, ""),
+    });
+
+    // 7. Preserve original feedback sources
     const sourceMap = new Map(
       result.data.map((item) => [item.id, item.source]),
     );
@@ -100,10 +108,11 @@ export async function POST(request: NextRequest) {
       source: sourceMap.get(item.feedback_id) ?? "unknown",
     }));
 
-    // 7. Return structured results
+    // 8. Return structured results
     return NextResponse.json({
       success: true,
-      message: "CSV uploaded and analyzed successfully",
+      message: "CSV uploaded, analyzed and saved successfully",
+      analysisId,
 
       summary: {
         totalRows: result.totalRows,
