@@ -50,6 +50,7 @@ export async function persistAnalysis({
 
       return {
         analysis_id: analysisId,
+        external_id: item.feedback_id,
         original_text: original.text,
         source: original.source,
         sentiment: item.sentiment,
@@ -59,14 +60,40 @@ export async function persistAnalysis({
       };
     });
 
-    // 3. Save all feedback entries
-    const { error: insertError } = await supabase
+    // 3. Save feedback and retrieve database UUIDs
+    const { data: savedEntries, error: insertError } = await supabase
       .from("feedback_entries")
-      .insert(rows);
+      .insert(rows)
+      .select("id, external_id");
 
     if (insertError) throw insertError;
 
-    // 4. Mark analysis as completed
+    if (!savedEntries || savedEntries.length !== analysis.items.length) {
+      throw new Error("Could not retrieve all saved feedback entries");
+    }
+
+    // 4. Map CSV IDs to Supabase UUIDs
+    const savedIdMap = new Map(
+      savedEntries.map((entry) => [entry.external_id, entry.id]),
+    );
+
+    const feedbackEntries = analysis.items.map((item) => {
+      const databaseId = savedIdMap.get(item.feedback_id);
+
+      if (!databaseId) {
+        throw new Error(`Saved feedback UUID not found: ${item.feedback_id}`);
+      }
+
+      return {
+        id: databaseId,
+        issue_key: item.issue_key,
+        severity: item.severity,
+        category: item.category,
+        reason: item.reason,
+      };
+    });
+
+    // 5. Mark analysis as completed
     const { error: updateError } = await supabase
       .from("analyses")
       .update({ status: "completed" })
@@ -74,7 +101,10 @@ export async function persistAnalysis({
 
     if (updateError) throw updateError;
 
-    return { analysisId };
+    return {
+      analysisId,
+      feedbackEntries,
+    };
   } catch (error) {
     // Mark the analysis as failed if persistence fails
     await supabase
