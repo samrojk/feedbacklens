@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 6. Save analysis and feedback to Supabase
-    const { analysisId } = await persistAnalysis({
+    const { analysisId, clusterCount } = await persistAnalysis({
       feedback: result.data,
       analysis,
       title: file.name.replace(/\.csv$/i, ""),
@@ -113,6 +113,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: "CSV uploaded, analyzed and saved successfully",
       analysisId,
+      clusterCount,
 
       summary: {
         totalRows: result.totalRows,

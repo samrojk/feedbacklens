@@ -1,6 +1,7 @@
 import "server-only";
 
 import { supabase } from "@/lib/supabase/server";
+import { persistIssueClusters } from "@/lib/supabase/clusters";
 import type { ParsedFeedback } from "@/lib/csv/parser";
 import type { FeedbackAnalysis } from "@/lib/validations/feedback";
 
@@ -50,48 +51,29 @@ export async function persistAnalysis({
 
       return {
         analysis_id: analysisId,
-        external_id: item.feedback_id,
         original_text: original.text,
         source: original.source,
         sentiment: item.sentiment,
         category: item.category,
         issue_key: item.issue_key,
         severity: item.severity,
-      };
-    });
-
-    // 3. Save feedback and retrieve database UUIDs
-    const { data: savedEntries, error: insertError } = await supabase
-      .from("feedback_entries")
-      .insert(rows)
-      .select("id, external_id");
-
-    if (insertError) throw insertError;
-
-    if (!savedEntries || savedEntries.length !== analysis.items.length) {
-      throw new Error("Could not retrieve all saved feedback entries");
-    }
-
-    // 4. Map CSV IDs to Supabase UUIDs
-    const savedIdMap = new Map(
-      savedEntries.map((entry) => [entry.external_id, entry.id]),
-    );
-
-    const feedbackEntries = analysis.items.map((item) => {
-      const databaseId = savedIdMap.get(item.feedback_id);
-
-      if (!databaseId) {
-        throw new Error(`Saved feedback UUID not found: ${item.feedback_id}`);
-      }
-
-      return {
-        id: databaseId,
-        issue_key: item.issue_key,
-        severity: item.severity,
-        category: item.category,
         reason: item.reason,
       };
     });
+
+    // 3. Save feedback and retrieve actual database UUIDs
+    const { data: savedFeedback, error: insertError } = await supabase
+      .from("feedback_entries")
+      .insert(rows)
+      .select("id, issue_key, severity, category, reason");
+
+    if (insertError) throw insertError;
+
+    // 4. Generate issue clusters using saved feedback UUIDs
+    const { clusterCount } = await persistIssueClusters(
+      analysisId,
+      savedFeedback,
+    );
 
     // 5. Mark analysis as completed
     const { error: updateError } = await supabase
@@ -103,10 +85,10 @@ export async function persistAnalysis({
 
     return {
       analysisId,
-      feedbackEntries,
+      clusterCount,
     };
   } catch (error) {
-    // Mark the analysis as failed if persistence fails
+    // Mark analysis as failed if persistence or clustering fails
     await supabase
       .from("analyses")
       .update({ status: "failed" })
