@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase/server";
+import { getUserWorkspace } from "@/lib/supabase/get-workspace";
 
 export async function GET() {
   try {
-    const workspaceId = process.env.FEEDBACKLENS_WORKSPACE_ID;
+    // 1. Resolve authenticated user's workspace
+    const result = await getUserWorkspace();
 
-    if (!workspaceId) {
+    if (!result.success) {
       return NextResponse.json(
-        { success: false, error: "Workspace configuration missing" },
-        { status: 500 },
+        { success: false, error: result.error },
+        { status: result.status },
       );
     }
 
-    // Fetch analyses and their related issue clusters
+    // 2. Fetch analyses belonging to that workspace
     const { data: analyses, error } = await supabase
       .from("analyses")
       .select(
@@ -25,14 +27,14 @@ export async function GET() {
         issue_clusters(id)
       `,
       )
-      .eq("workspace_id", workspaceId)
+      .eq("workspace_id", result.workspaceId)
       .order("created_at", { ascending: false })
       .limit(50);
 
     if (error) throw error;
 
-    // Format the response
-    const results = analyses.map((analysis) => ({
+    // 3. Format response
+    const data = analyses.map((analysis) => ({
       id: analysis.id,
       title: analysis.title,
       status: analysis.status,
@@ -43,17 +45,15 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      count: results.length,
-      data: results,
+      workspace: result.workspace,
+      count: data.length,
+      data,
     });
   } catch (error) {
     console.error("Analysis listing failed:", error);
 
     return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to retrieve analyses",
-      },
+      { success: false, error: "Failed to retrieve analyses" },
       { status: 500 },
     );
   }
