@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { analyzeFeedback } from "@/lib/ai/analyze";
-
-// export const runtime = "nodejs";
-// export const maxDuration = 60;
+import { getUserWorkspace } from "@/lib/supabase/get-workspace";
 
 const requestSchema = z.object({
   feedback: z
@@ -19,6 +17,20 @@ const requestSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    // 1. Authenticate user and verify workspace access
+    const workspaceResult = await getUserWorkspace();
+
+    if (!workspaceResult.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: workspaceResult.error,
+        },
+        { status: workspaceResult.status },
+      );
+    }
+
+    // 2. Validate request body
     const body: unknown = await request.json();
 
     const validation = requestSchema.safeParse(body);
@@ -36,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     const { feedback } = validation.data;
 
-    // Reject duplicate IDs before calling the AI.
+    // 3. Reject duplicate IDs
     const ids = feedback.map((item) => item.id);
 
     if (new Set(ids).size !== ids.length) {
@@ -49,6 +61,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 4. Analyze feedback using Gemini
     const result = await analyzeFeedback(feedback);
 
     return NextResponse.json({

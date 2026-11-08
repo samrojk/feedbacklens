@@ -2,12 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { persistAnalysis } from "@/lib/supabase/persist";
 import { parseFeedbackCSV } from "@/lib/csv/parser";
 import { analyzeFeedback } from "@/lib/ai/analyze";
+import { getUserWorkspace } from "@/lib/supabase/get-workspace";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_FEEDBACK_ENTRIES = 50;
 
 export async function POST(request: NextRequest) {
   try {
+    // Verify authentication and workspace access
+    const workspaceResult = await getUserWorkspace();
+
+    if (!workspaceResult.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: workspaceResult.error,
+        },
+        { status: workspaceResult.status },
+      );
+    }
+
     // 1. Extract uploaded CSV
     const formData = await request.formData();
     const file = formData.get("file");
