@@ -145,9 +145,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "CSV processing failed",
+        error: "CSV processing failed. Please try again.",
       },
-      { status: 400 },
+      { status: 500 },
     );
   }
 }
