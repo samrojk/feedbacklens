@@ -124,7 +124,7 @@ export default function FeedbackPage() {
   const invalidCount = result?.errors?.length ?? 0;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
+    <div className="mx-auto space-y-8">
       {/* Heading */}
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -372,9 +372,9 @@ export default function FeedbackPage() {
 
           <div className="flex flex-wrap gap-3">
             <Button asChild>
-              <a href="/issues">
+              <a href="/issues" className="flex items-center gap-1">
                 Explore discovered issues
-                <ArrowRight className="ml-2 size-4" />
+                <ArrowRight className="size-4" />
               </a>
             </Button>
 
