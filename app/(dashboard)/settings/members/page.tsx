@@ -4,6 +4,7 @@ import { Users, ShieldCheck } from "lucide-react";
 
 import { supabase } from "@/lib/supabase/server";
 import { getUserWorkspace } from "@/lib/supabase/get-workspace";
+import { InviteMemberForm } from "@/components/settings/invite-member-form";
 
 import {
   Card,
@@ -76,6 +77,7 @@ async function MembersContent() {
           People who have access to {result.workspace.name}.
         </p>
       </div>
+      {canManageMembers && <InviteMemberForm />}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
