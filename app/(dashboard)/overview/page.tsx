@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { connection } from "next/server";
 import {
   Activity,
   ArrowRight,
@@ -54,6 +55,9 @@ function formatDate(value: string) {
 }
 
 async function OverviewContent() {
+  // The activity chart uses the current date, so this content is request-time.
+  await connection();
+
   const workspaceResult = await getUserWorkspace();
 
   if (!workspaceResult.success) {

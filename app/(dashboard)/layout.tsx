@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 
@@ -30,6 +31,9 @@ async function DashboardContent({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Supabase auth validates session expiry using the current time.
+  await connection();
+
   const result = await getUserWorkspace();
 
   if (!result.success) {
