@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { connection } from "next/server";
 import {
   ArrowLeft,
   AlertCircle,
@@ -9,8 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import { supabase } from "@/lib/supabase/server";
-import { getUserWorkspace } from "@/lib/supabase/get-workspace";
+import { getAnalysisDetailsForCurrentWorkspace } from "@/lib/supabase/dashboard-data";
 
 import {
   Card,
@@ -42,8 +42,25 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-async function AnalysisContent({ analysisId }: { analysisId: string }) {
-  const workspaceResult = await getUserWorkspace();
+async function AnalysisContent({
+  params,
+}: {
+  params: Promise<{ analysisId: string }>;
+}) {
+  await connection();
+
+  const { analysisId } = await params;
+
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      analysisId,
+    )
+  ) {
+    notFound();
+  }
+
+  const workspaceResult =
+    await getAnalysisDetailsForCurrentWorkspace(analysisId);
 
   if (!workspaceResult.success) {
     return (
@@ -56,46 +73,12 @@ async function AnalysisContent({ analysisId }: { analysisId: string }) {
     );
   }
 
-  const { data: analysis, error: analysisError } = await supabase
-    .from("analyses")
-    .select("id, title, status, total_feedback, created_at")
-    .eq("id", analysisId)
-    .eq("workspace_id", workspaceResult.workspaceId)
-    .maybeSingle();
+  const detail = workspaceResult.data;
 
-  if (analysisError) {
-    console.error("Analysis lookup failed:", analysisError);
-    throw new Error("Unable to load analysis");
-  }
+  if (!detail) notFound();
 
+  const { analysis, feedback, clusters } = detail;
   if (!analysis) notFound();
-
-  const [feedbackResult, clusterResult] = await Promise.all([
-    supabase
-      .from("feedback_entries")
-      .select(
-        "id, original_text, source, sentiment, category, severity, reason, issue_key, created_at",
-      )
-      .eq("analysis_id", analysis.id)
-      .order("created_at", { ascending: false }),
-
-    supabase
-      .from("issue_clusters")
-      .select("id, title, description, priority, created_at")
-      .eq("analysis_id", analysis.id)
-      .order("created_at", { ascending: false }),
-  ]);
-
-  if (feedbackResult.error || clusterResult.error) {
-    console.error(
-      "Analysis detail lookup failed:",
-      feedbackResult.error ?? clusterResult.error,
-    );
-    throw new Error("Unable to load analysis details");
-  }
-
-  const feedback = feedbackResult.data ?? [];
-  const clusters = clusterResult.data ?? [];
 
   const positive = feedback.filter(
     (item) => item.sentiment === "positive",
@@ -390,24 +373,14 @@ function AnalysisLoading() {
   );
 }
 
-export default async function AnalysisPage({
+export default function AnalysisPage({
   params,
 }: {
   params: Promise<{ analysisId: string }>;
 }) {
-  const { analysisId } = await params;
-
-  if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      analysisId,
-    )
-  ) {
-    notFound();
-  }
-
   return (
     <Suspense fallback={<AnalysisLoading />}>
-      <AnalysisContent analysisId={analysisId} />
+      <AnalysisContent params={params} />
     </Suspense>
   );
 }

@@ -9,8 +9,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 
-import { supabase } from "@/lib/supabase/server";
-import { getUserWorkspace } from "@/lib/supabase/get-workspace";
+import { getIssuesDashboardData } from "@/lib/supabase/dashboard-data";
 
 export const metadata = {
   title: "Issues",
@@ -73,7 +72,7 @@ async function IssuesContent() {
   // Supabase auth checks session expiry using the current time.
   await connection();
 
-  const workspaceResult = await getUserWorkspace();
+  const workspaceResult = await getIssuesDashboardData();
 
   if (!workspaceResult.success) {
     return (
@@ -84,43 +83,11 @@ async function IssuesContent() {
     );
   }
 
-  // Fetch analyses belonging to the authenticated workspace.
-  const { data: analysesData, error: analysisError } = await supabase
-    .from("analyses")
-    .select(
-      "id, title, created_at, issue_clusters(id, analysis_id, title, description, priority, created_at)",
-    )
-    .eq("workspace_id", workspaceResult.workspaceId)
-    .order("created_at", { ascending: false });
-
-  if (analysisError) {
-    console.error("Issue analysis lookup failed:", analysisError);
-    throw new Error("Unable to load issue analyses");
-  }
-
-  const analyses = analysesData ?? [];
-  const clusters = analyses
-    .flatMap((analysis) => analysis.issue_clusters ?? [])
-    .sort((a, b) => b.created_at.localeCompare(a.created_at)) as IssueCluster[];
-
-  // Fetch feedback-to-cluster relationships.
-  const clusterIds = clusters.map((cluster) => cluster.id);
-
-  let feedbackLinks: { cluster_id: string; feedback_id: string }[] = [];
-
-  if (clusterIds.length > 0) {
-    const { data, error } = await supabase
-      .from("cluster_feedback")
-      .select("cluster_id, feedback_id")
-      .in("cluster_id", clusterIds);
-
-    if (error) {
-      console.error("Issue feedback lookup failed:", error);
-      throw new Error("Unable to load issue feedback counts");
-    }
-
-    feedbackLinks = data ?? [];
-  }
+  const { analyses, clusters: issueClusters, feedbackLinks } =
+    workspaceResult.data;
+  const clusters = [...issueClusters].sort((a, b) =>
+    b.created_at.localeCompare(a.created_at),
+  ) as IssueCluster[];
 
   // Prepare display data.
   const analysisMap = new Map(

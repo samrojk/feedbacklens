@@ -1,8 +1,50 @@
 import "server-only";
 
 import { cache } from "react";
+import { cacheLife, cacheTag } from "next/cache";
 import { getAuthenticatedUser } from "@/lib/supabase/get-user";
 import { supabase } from "@/lib/supabase/server";
+import { profileCacheTag, workspaceCacheTag } from "@/lib/supabase/cache-tags";
+
+async function getCachedProfileName(userId: string) {
+  "use cache";
+
+  cacheLife({ stale: 300, revalidate: 3600, expire: 7200 });
+  cacheTag(profileCacheTag(userId));
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Cached profile lookup failed:", error);
+    throw new Error("Unable to retrieve user profile");
+  }
+
+  return data?.full_name ?? null;
+}
+
+async function getCachedWorkspace(workspaceId: string) {
+  "use cache";
+
+  cacheLife({ stale: 300, revalidate: 3600, expire: 7200 });
+  cacheTag(workspaceCacheTag(workspaceId));
+
+  const { data, error } = await supabase
+    .from("workspaces")
+    .select("id, name")
+    .eq("id", workspaceId)
+    .maybeSingle();
+
+  if (error || !data) {
+    console.error("Cached workspace lookup failed:", error);
+    throw new Error("Unable to retrieve workspace");
+  }
+
+  return data;
+}
 
 export const getUserWorkspace = cache(async function getUserWorkspace() {
   // 1. Authenticate user
@@ -16,10 +58,10 @@ export const getUserWorkspace = cache(async function getUserWorkspace() {
     };
   }
 
-  // 2. Retrieve user's default workspace
+  // 2. Retrieve the current workspace selection.
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("default_workspace_id, full_name")
+    .select("default_workspace_id")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -33,7 +75,9 @@ export const getUserWorkspace = cache(async function getUserWorkspace() {
     };
   }
 
-  if (!profile?.default_workspace_id) {
+  const workspaceId = profile?.default_workspace_id;
+
+  if (!workspaceId) {
     return {
       success: false as const,
       status: 403,
@@ -41,20 +85,13 @@ export const getUserWorkspace = cache(async function getUserWorkspace() {
     };
   }
 
-  // Membership and workspace details are independent once the profile is known.
-  const [membershipResult, workspaceResult] = await Promise.all([
-    supabase
-      .from("workspace_members")
-      .select("workspace_id, role")
-      .eq("workspace_id", profile.default_workspace_id)
-      .eq("user_id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("workspaces")
-      .select("id, name")
-      .eq("id", profile.default_workspace_id)
-      .maybeSingle(),
-  ]);
+  // Membership is always checked on the current request.
+  const membershipResult = await supabase
+    .from("workspace_members")
+    .select("workspace_id, role")
+    .eq("workspace_id", workspaceId)
+    .eq("user_id", user.id)
+    .maybeSingle();
 
   if (membershipResult.error) {
     console.error("Membership lookup failed:", membershipResult.error);
@@ -76,22 +113,28 @@ export const getUserWorkspace = cache(async function getUserWorkspace() {
     };
   }
 
-  if (workspaceResult.error || !workspaceResult.data) {
-    console.error("Workspace lookup failed:", workspaceResult.error);
+  let profileFullName: string | null;
+  let workspace: Awaited<ReturnType<typeof getCachedWorkspace>>;
+
+  try {
+    [profileFullName, workspace] = await Promise.all([
+      getCachedProfileName(user.id),
+      getCachedWorkspace(workspaceId),
+    ]);
+  } catch (error) {
+    console.error("Workspace details lookup failed:", error);
 
     return {
       success: false as const,
       status: 500,
-      error: "Unable to retrieve workspace",
+      error: "Unable to retrieve workspace details",
     };
   }
-
-  const workspace = workspaceResult.data;
 
   return {
     success: true as const,
     user,
-    profileFullName: profile.full_name,
+    profileFullName,
     workspaceId: workspace.id,
     workspace,
     role: membership.role,

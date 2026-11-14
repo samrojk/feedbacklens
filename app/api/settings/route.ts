@@ -5,6 +5,11 @@ import { z } from "zod";
 import { supabase } from "@/lib/supabase/server";
 import { createClient } from "@/lib/supabase/auth-server";
 import { getUserWorkspace } from "@/lib/supabase/get-workspace";
+import { revalidateTag } from "next/cache";
+import {
+  profileCacheTag,
+  workspaceCacheTag,
+} from "@/lib/supabase/cache-tags";
 
 const profileSchema = z.object({
   section: z.literal("profile"),
@@ -55,6 +60,10 @@ export async function PATCH(request: NextRequest) {
         );
       }
 
+      revalidateTag(profileCacheTag(workspaceResult.user.id), {
+        expire: 0,
+      });
+
       return NextResponse.json({
         success: true,
         message: "Profile updated successfully.",
@@ -83,6 +92,10 @@ export async function PATCH(request: NextRequest) {
           { status: 500 },
         );
       }
+
+      revalidateTag(workspaceCacheTag(workspaceResult.workspaceId), {
+        expire: 0,
+      });
 
       return NextResponse.json({
         success: true,

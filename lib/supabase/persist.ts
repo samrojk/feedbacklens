@@ -4,29 +4,34 @@ import { supabase } from "@/lib/supabase/server";
 import { persistIssueClusters } from "@/lib/supabase/clusters";
 import type { ParsedFeedback } from "@/lib/csv/parser";
 import type { FeedbackAnalysis } from "@/lib/validations/feedback";
-import { getUserWorkspace } from "@/lib/supabase/get-workspace";
+import { revalidatePath, revalidateTag } from "next/cache";
+import {
+  analysisCacheTag,
+  workspaceAnalyticsCacheTag,
+} from "@/lib/supabase/cache-tags";
 
 interface PersistAnalysisInput {
   feedback: ParsedFeedback[];
   analysis: FeedbackAnalysis;
   title: string;
+  workspaceId: string;
+}
+
+function invalidateAnalysisData(workspaceId: string, analysisId: string) {
+  revalidateTag(workspaceAnalyticsCacheTag(workspaceId), { expire: 0 });
+  revalidateTag(analysisCacheTag(workspaceId, analysisId), { expire: 0 });
+  revalidatePath("/overview");
+  revalidatePath("/issues");
+  revalidatePath(`/analyses/${analysisId}`);
 }
 
 export async function persistAnalysis({
   feedback,
   analysis,
   title,
+  workspaceId,
 }: PersistAnalysisInput) {
-  // 1. Resolve authenticated user's workspace
-  const workspaceResult = await getUserWorkspace();
-
-  if (!workspaceResult.success) {
-    throw new Error(workspaceResult.error);
-  }
-
-  const workspaceId = workspaceResult.workspaceId;
-
-  // 2. Validate AI results before creating database records
+  // 1. Validate AI results before creating database records
   const feedbackMap = new Map(feedback.map((item) => [item.id, item]));
 
   const rows = analysis.items.map((item) => {
@@ -47,7 +52,7 @@ export async function persistAnalysis({
     };
   });
 
-  // 3. Create analysis record
+  // 2. Create analysis record
   const { data: record, error: createError } = await supabase
     .from("analyses")
     .insert({
@@ -62,9 +67,10 @@ export async function persistAnalysis({
   if (createError) throw createError;
 
   const analysisId = record.id;
+  let clusterCount = 0;
 
   try {
-    // 4. Save feedback entries
+    // 3. Save feedback entries
     const feedbackRows = rows.map((row) => ({
       ...row,
       analysis_id: analysisId,
@@ -77,13 +83,11 @@ export async function persistAnalysis({
 
     if (insertError) throw insertError;
 
-    // 5. Generate issue clusters
-    const { clusterCount } = await persistIssueClusters(
-      analysisId,
-      savedFeedback,
-    );
+    // 4. Generate issue clusters
+    const result = await persistIssueClusters(analysisId, savedFeedback);
+    clusterCount = result.clusterCount;
 
-    // 6. Mark analysis as completed
+    // 5. Mark analysis as completed
     const { error: updateError } = await supabase
       .from("analyses")
       .update({ status: "completed" })
@@ -91,19 +95,27 @@ export async function persistAnalysis({
       .eq("workspace_id", workspaceId);
 
     if (updateError) throw updateError;
-
-    return {
-      analysisId,
-      clusterCount,
-    };
   } catch (error) {
     // Mark analysis as failed
-    await supabase
+    const { error: failureUpdateError } = await supabase
       .from("analyses")
       .update({ status: "failed" })
       .eq("id", analysisId)
       .eq("workspace_id", workspaceId);
 
+    if (failureUpdateError) {
+      console.error("Failed to mark analysis as failed:", failureUpdateError);
+    }
+
+    invalidateAnalysisData(workspaceId, analysisId);
+
     throw error;
   }
+
+  invalidateAnalysisData(workspaceId, analysisId);
+
+  return {
+    analysisId,
+    clusterCount,
+  };
 }

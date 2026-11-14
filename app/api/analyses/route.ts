@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import { unstable_rethrow } from "next/navigation";
-import { supabase } from "@/lib/supabase/server";
-import { getUserWorkspace } from "@/lib/supabase/get-workspace";
+import { getRecentAnalysesForCurrentWorkspace } from "@/lib/supabase/dashboard-data";
 
 export async function GET() {
   try {
-    // 1. Resolve authenticated user's workspace
-    const result = await getUserWorkspace();
+    const result = await getRecentAnalysesForCurrentWorkspace();
 
     if (!result.success) {
       return NextResponse.json(
@@ -15,27 +13,7 @@ export async function GET() {
       );
     }
 
-    // 2. Fetch analyses belonging to that workspace
-    const { data: analyses, error } = await supabase
-      .from("analyses")
-      .select(
-        `
-        id,
-        title,
-        status,
-        total_feedback,
-        created_at,
-        issue_clusters(id)
-      `,
-      )
-      .eq("workspace_id", result.workspaceId)
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    if (error) throw error;
-
-    // 3. Format response
-    const data = analyses.map((analysis) => ({
+    const data = result.analyses.map((analysis) => ({
       id: analysis.id,
       title: analysis.title,
       status: analysis.status,

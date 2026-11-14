@@ -13,8 +13,7 @@ import {
   Upload,
 } from "lucide-react";
 
-import { supabase } from "@/lib/supabase/server";
-import { getUserWorkspace } from "@/lib/supabase/get-workspace";
+import { getOverviewDashboardData } from "@/lib/supabase/dashboard-data";
 
 import {
   Card,
@@ -58,7 +57,7 @@ async function OverviewContent() {
   // The activity chart uses the current date, so this content is request-time.
   await connection();
 
-  const workspaceResult = await getUserWorkspace();
+  const workspaceResult = await getOverviewDashboardData();
 
   if (!workspaceResult.success) {
     return (
@@ -71,46 +70,8 @@ async function OverviewContent() {
     );
   }
 
-  const workspaceId = workspaceResult.workspaceId;
-
-  // Fetch workspace analyses.
-  const { data: analysesData, error: analysesError } = await supabase
-    .from("analyses")
-    .select(
-      "id, title, status, total_feedback, created_at, issue_clusters(id, title, description, priority, analysis_id)",
-    )
-    .eq("workspace_id", workspaceId)
-    .order("created_at", { ascending: false })
-    .limit(50);
-
-  if (analysesError) {
-    console.error("Overview analyses error:", analysesError);
-    throw new Error("Unable to load dashboard analyses");
-  }
-
-  const analyses = analysesData ?? [];
-  const analysisIds = analyses.map((item) => item.id);
-  const clusters = analyses.flatMap((item) => item.issue_clusters ?? []);
-
-  let feedbackEntries: {
-    id: string;
-    sentiment: string;
-    created_at: string;
-  }[] = [];
-
-  if (analysisIds.length > 0) {
-    const feedbackResult = await supabase
-      .from("feedback_entries")
-      .select("id, sentiment, created_at")
-      .in("analysis_id", analysisIds);
-
-    if (feedbackResult.error) {
-      console.error("Overview feedback error:", feedbackResult.error);
-      throw new Error("Unable to load feedback data");
-    }
-
-    feedbackEntries = feedbackResult.data ?? [];
-  }
+  const { analyses, feedbackEntries, clusters, feedbackLinks } =
+    workspaceResult.data;
 
   // Feedback counts by sentiment.
   const positive = feedbackEntries.filter(
@@ -141,25 +102,6 @@ async function OverviewContent() {
   const completedAnalyses = analyses.filter(
     (item) => item.status === "completed",
   ).length;
-
-  // Feedback count for each issue.
-  let feedbackLinks: { cluster_id: string; feedback_id: string }[] = [];
-
-  const clusterIds = clusters.map((item) => item.id);
-
-  if (clusterIds.length > 0) {
-    const { data, error } = await supabase
-      .from("cluster_feedback")
-      .select("cluster_id, feedback_id")
-      .in("cluster_id", clusterIds);
-
-    if (error) {
-      console.error("Overview cluster feedback error:", error);
-      throw new Error("Unable to load issue feedback counts");
-    }
-
-    feedbackLinks = data ?? [];
-  }
 
   const issueCounts = new Map<string, number>();
 

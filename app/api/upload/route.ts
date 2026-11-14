@@ -111,6 +111,7 @@ export async function POST(request: NextRequest) {
       feedback: result.data,
       analysis,
       title: file.name.replace(/\.csv$/i, ""),
+      workspaceId: workspaceResult.workspaceId,
     });
 
     // 7. Preserve original feedback sources
