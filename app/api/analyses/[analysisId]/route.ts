@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { unstable_rethrow } from "next/navigation";
 import { supabase } from "@/lib/supabase/server";
 import { getUserWorkspace } from "@/lib/supabase/get-workspace";
 
@@ -114,6 +115,7 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
       },
     });
   } catch (error) {
+    unstable_rethrow(error);
     console.error("Analysis retrieval failed:", error);
 
     return NextResponse.json(

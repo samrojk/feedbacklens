@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { unstable_rethrow } from "next/navigation";
 import { persistAnalysis } from "@/lib/supabase/persist";
 import { parseFeedbackCSV } from "@/lib/csv/parser";
 import { analyzeFeedback } from "@/lib/ai/analyze";
@@ -140,6 +141,7 @@ export async function POST(request: NextRequest) {
       errors: result.errors,
     });
   } catch (error) {
+    unstable_rethrow(error);
     console.error("CSV upload failed:", error);
 
     return NextResponse.json(

@@ -1,18 +1,13 @@
 import { AppSidebarClient } from "@/components/layout/app-sidebar-client";
 import { getUserWorkspace } from "@/lib/supabase/get-workspace";
 
-export async function AppSidebar() {
-  const result = await getUserWorkspace();
+type Props = {
+  result: Extract<Awaited<ReturnType<typeof getUserWorkspace>>, { success: true }>;
+};
 
-  if (!result.success) {
-    return <div className="w-[260px] border-r bg-background" />;
-  }
-
-  const metadata = result.user.user_metadata ?? {};
-
+export function AppSidebar({ result }: Props) {
   const userName =
-    metadata.full_name ||
-    metadata.name ||
+    result.profileFullName ||
     result.user.email?.split("@")[0] ||
     "User";
 

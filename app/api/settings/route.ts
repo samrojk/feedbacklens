@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 
 import { supabase } from "@/lib/supabase/server";
@@ -111,6 +112,7 @@ export async function PATCH(request: NextRequest) {
       { status: 400 },
     );
   } catch (error) {
+    unstable_rethrow(error);
     console.error("Settings API error:", error);
 
     return NextResponse.json(

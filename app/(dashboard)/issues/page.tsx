@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { connection } from "next/server";
 import {
   Layers3,
   ArrowUpRight,
@@ -70,9 +69,6 @@ export default function IssuesPage() {
 }
 
 async function IssuesContent() {
-  // Prevent prerendering before any request-time operations.
-  await connection();
-
   const workspaceResult = await getUserWorkspace();
 
   if (!workspaceResult.success) {
@@ -87,7 +83,9 @@ async function IssuesContent() {
   // Fetch analyses belonging to the authenticated workspace.
   const { data: analysesData, error: analysisError } = await supabase
     .from("analyses")
-    .select("id, title, created_at")
+    .select(
+      "id, title, created_at, issue_clusters(id, analysis_id, title, description, priority, created_at)",
+    )
     .eq("workspace_id", workspaceResult.workspaceId)
     .order("created_at", { ascending: false });
 
@@ -97,25 +95,9 @@ async function IssuesContent() {
   }
 
   const analyses = analysesData ?? [];
-  const analysisIds = analyses.map((item) => item.id);
-
-  // Fetch issue clusters.
-  let clusters: IssueCluster[] = [];
-
-  if (analysisIds.length > 0) {
-    const { data, error } = await supabase
-      .from("issue_clusters")
-      .select("id, analysis_id, title, description, priority, created_at")
-      .in("analysis_id", analysisIds)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Issue clusters lookup failed:", error);
-      throw new Error("Unable to load issue clusters");
-    }
-
-    clusters = (data ?? []) as IssueCluster[];
-  }
+  const clusters = analyses
+    .flatMap((analysis) => analysis.issue_clusters ?? [])
+    .sort((a, b) => b.created_at.localeCompare(a.created_at)) as IssueCluster[];
 
   // Fetch feedback-to-cluster relationships.
   const clusterIds = clusters.map((cluster) => cluster.id);

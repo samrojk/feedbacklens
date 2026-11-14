@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   UserRound,
@@ -46,6 +46,11 @@ export function SettingsForm({
   const [loading, setLoading] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setName(initialName);
+    setWorkspace(workspaceName);
+  }, [initialName, workspaceName]);
 
   const canManageWorkspace = ["owner", "admin"].includes(role);
 
@@ -93,7 +98,6 @@ export function SettingsForm({
       }
 
       router.replace("/login");
-      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Logout failed.");
       setLoading("");

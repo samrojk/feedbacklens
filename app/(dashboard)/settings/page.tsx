@@ -1,7 +1,5 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
 
-import { supabase } from "@/lib/supabase/server";
 import { getUserWorkspace } from "@/lib/supabase/get-workspace";
 import { SettingsForm } from "@/components/settings/settings-form";
 
@@ -10,8 +8,6 @@ export const metadata = {
 };
 
 async function SettingsContent() {
-  await connection();
-
   const result = await getUserWorkspace();
 
   if (!result.success) {
@@ -23,22 +19,9 @@ async function SettingsContent() {
     );
   }
 
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", result.user.id)
-    .maybeSingle();
-
-  if (error) {
-    console.error("Settings profile lookup failed:", error);
-    throw new Error("Unable to load profile settings");
-  }
-
   return (
     <SettingsForm
-      initialName={
-        profile?.full_name || result.user.user_metadata?.full_name || ""
-      }
+      initialName={result.profileFullName || ""}
       email={result.user.email ?? ""}
       workspaceName={result.workspace.name}
       role={result.role}

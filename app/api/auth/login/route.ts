@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { unstable_rethrow } from "next/navigation";
 import { createClient } from "@/lib/supabase/auth-server";
 import { z } from "zod";
 
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    unstable_rethrow(error);
     console.error("Login failed:", error);
 
     return NextResponse.json(

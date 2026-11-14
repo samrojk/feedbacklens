@@ -371,15 +371,16 @@ export default function FeedbackPage() {
           )}
 
           <div className="flex flex-wrap gap-3">
-            <Button asChild>
-              <a href="/issues" className="flex items-center gap-1">
-                Explore discovered issues
-                <ArrowRight className="size-4" />
-              </a>
+            <Button
+              render={<a href="/issues" />}
+              className="flex items-center gap-1"
+            >
+              Explore discovered issues
+              <ArrowRight className="size-4" />
             </Button>
 
-            <Button variant="outline" asChild>
-              <a href="/overview">Back to overview</a>
+            <Button variant="outline" render={<a href="/overview" />}>
+              Back to overview
             </Button>
           </div>
         </div>

@@ -1,9 +1,10 @@
 import "server-only";
 
+import { cache } from "react";
 import { getAuthenticatedUser } from "@/lib/supabase/get-user";
 import { supabase } from "@/lib/supabase/server";
 
-export async function getUserWorkspace() {
+export const getUserWorkspace = cache(async function getUserWorkspace() {
   // 1. Authenticate user
   const user = await getAuthenticatedUser();
 
@@ -18,7 +19,7 @@ export async function getUserWorkspace() {
   // 2. Retrieve user's default workspace
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("default_workspace_id")
+    .select("default_workspace_id, full_name")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -40,16 +41,23 @@ export async function getUserWorkspace() {
     };
   }
 
-  // 3. Verify workspace membership
-  const { data: membership, error: membershipError } = await supabase
-    .from("workspace_members")
-    .select("workspace_id, role")
-    .eq("workspace_id", profile.default_workspace_id)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  // Membership and workspace details are independent once the profile is known.
+  const [membershipResult, workspaceResult] = await Promise.all([
+    supabase
+      .from("workspace_members")
+      .select("workspace_id, role")
+      .eq("workspace_id", profile.default_workspace_id)
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("workspaces")
+      .select("id, name")
+      .eq("id", profile.default_workspace_id)
+      .maybeSingle(),
+  ]);
 
-  if (membershipError) {
-    console.error("Membership lookup failed:", membershipError);
+  if (membershipResult.error) {
+    console.error("Membership lookup failed:", membershipResult.error);
 
     return {
       success: false as const,
@@ -57,6 +65,8 @@ export async function getUserWorkspace() {
       error: "Unable to verify workspace membership",
     };
   }
+
+  const membership = membershipResult.data;
 
   if (!membership) {
     return {
@@ -66,15 +76,8 @@ export async function getUserWorkspace() {
     };
   }
 
-  // 4. Retrieve workspace details
-  const { data: workspace, error: workspaceError } = await supabase
-    .from("workspaces")
-    .select("id, name")
-    .eq("id", membership.workspace_id)
-    .single();
-
-  if (workspaceError || !workspace) {
-    console.error("Workspace lookup failed:", workspaceError);
+  if (workspaceResult.error || !workspaceResult.data) {
+    console.error("Workspace lookup failed:", workspaceResult.error);
 
     return {
       success: false as const,
@@ -83,11 +86,14 @@ export async function getUserWorkspace() {
     };
   }
 
+  const workspace = workspaceResult.data;
+
   return {
     success: true as const,
     user,
+    profileFullName: profile.full_name,
     workspaceId: workspace.id,
     workspace,
     role: membership.role,
   };
-}
+});

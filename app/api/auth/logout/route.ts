@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { unstable_rethrow } from "next/navigation";
 import { createClient } from "@/lib/supabase/auth-server";
 
 export async function POST() {
@@ -14,6 +15,7 @@ export async function POST() {
       message: "Logged out successfully",
     });
   } catch (error) {
+    unstable_rethrow(error);
     console.error("Logout failed:", error);
 
     return NextResponse.json(

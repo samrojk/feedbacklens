@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 import { analyzeFeedback } from "@/lib/ai/analyze";
 import { getUserWorkspace } from "@/lib/supabase/get-workspace";
@@ -70,6 +71,7 @@ export async function POST(request: NextRequest) {
       data: result.items,
     });
   } catch (error) {
+    unstable_rethrow(error);
     console.error("Feedback analysis failed:", error);
 
     return NextResponse.json(

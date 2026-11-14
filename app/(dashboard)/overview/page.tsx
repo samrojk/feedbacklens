@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { connection } from "next/server";
 import {
   Activity,
   ArrowRight,
@@ -55,8 +54,6 @@ function formatDate(value: string) {
 }
 
 async function OverviewContent() {
-  await connection();
-
   const workspaceResult = await getUserWorkspace();
 
   if (!workspaceResult.success) {
@@ -75,7 +72,9 @@ async function OverviewContent() {
   // Fetch workspace analyses.
   const { data: analysesData, error: analysesError } = await supabase
     .from("analyses")
-    .select("id, title, status, total_feedback, created_at")
+    .select(
+      "id, title, status, total_feedback, created_at, issue_clusters(id, title, description, priority, analysis_id)",
+    )
     .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false })
     .limit(50);
@@ -87,6 +86,7 @@ async function OverviewContent() {
 
   const analyses = analysesData ?? [];
   const analysisIds = analyses.map((item) => item.id);
+  const clusters = analyses.flatMap((item) => item.issue_clusters ?? []);
 
   let feedbackEntries: {
     id: string;
@@ -94,39 +94,18 @@ async function OverviewContent() {
     created_at: string;
   }[] = [];
 
-  let clusters: {
-    id: string;
-    title: string;
-    description: string;
-    priority: string;
-    analysis_id: string;
-  }[] = [];
-
   if (analysisIds.length > 0) {
-    const [feedbackResult, clusterResult] = await Promise.all([
-      supabase
-        .from("feedback_entries")
-        .select("id, sentiment, created_at")
-        .in("analysis_id", analysisIds),
-
-      supabase
-        .from("issue_clusters")
-        .select("id, title, description, priority, analysis_id")
-        .in("analysis_id", analysisIds),
-    ]);
+    const feedbackResult = await supabase
+      .from("feedback_entries")
+      .select("id, sentiment, created_at")
+      .in("analysis_id", analysisIds);
 
     if (feedbackResult.error) {
       console.error("Overview feedback error:", feedbackResult.error);
       throw new Error("Unable to load feedback data");
     }
 
-    if (clusterResult.error) {
-      console.error("Overview clusters error:", clusterResult.error);
-      throw new Error("Unable to load issue data");
-    }
-
     feedbackEntries = feedbackResult.data ?? [];
-    clusters = clusterResult.data ?? [];
   }
 
   // Feedback counts by sentiment.

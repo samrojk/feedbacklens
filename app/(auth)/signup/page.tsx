@@ -2,11 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 export default function SignupPage() {
-  const router = useRouter();
-
   const [form, setForm] = useState({
     fullName: "",
     workspaceName: "",
@@ -52,8 +49,7 @@ export default function SignupPage() {
         return;
       }
 
-      router.push("/overview");
-      router.refresh();
+      window.location.replace("/overview");
     } catch (error) {
       setError(error instanceof Error ? error.message : "Something went wrong");
     } finally {

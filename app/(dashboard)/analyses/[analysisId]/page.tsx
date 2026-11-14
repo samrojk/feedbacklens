@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { connection } from "next/server";
 import {
   ArrowLeft,
   AlertCircle,
@@ -44,8 +43,6 @@ function formatDate(value: string) {
 }
 
 async function AnalysisContent({ analysisId }: { analysisId: string }) {
-  await connection();
-
   const workspaceResult = await getUserWorkspace();
 
   if (!workspaceResult.success) {

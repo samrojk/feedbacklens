@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { unstable_rethrow } from "next/navigation";
 import { supabase } from "@/lib/supabase/server";
 import { getUserWorkspace } from "@/lib/supabase/get-workspace";
 
@@ -50,6 +51,7 @@ export async function GET() {
       data,
     });
   } catch (error) {
+    unstable_rethrow(error);
     console.error("Analysis listing failed:", error);
 
     return NextResponse.json(
