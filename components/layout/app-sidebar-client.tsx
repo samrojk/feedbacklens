@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -139,9 +138,7 @@ export function AppSidebarClient({
       router.refresh();
     } catch (error) {
       setSwitchError(
-        error instanceof Error
-          ? error.message
-          : "Unable to switch workspace.",
+        error instanceof Error ? error.message : "Unable to switch workspace.",
       );
     } finally {
       setSwitching(false);
@@ -157,11 +154,11 @@ export function AppSidebarClient({
       .join("")
       .toUpperCase() || "U";
 
-  const activeWorkspace =
-    workspaces.find((workspace) => workspace.id === activeId);
+  const activeWorkspace = workspaces.find(
+    (workspace) => workspace.id === activeId,
+  );
 
-  const displayedWorkspaceName =
-    activeWorkspace?.name ?? workspaceName;
+  const displayedWorkspaceName = activeWorkspace?.name ?? workspaceName;
 
   const displayedRole = activeWorkspace?.role ?? role;
 
@@ -219,9 +216,7 @@ export function AppSidebarClient({
                   </p>
                 </div>
 
-                {workspace.id === activeId && (
-                  <Check className="size-4" />
-                )}
+                {workspace.id === activeId && <Check className="size-4" />}
               </DropdownMenuItem>
             ))}
 
@@ -260,7 +255,7 @@ export function AppSidebarClient({
                     isActive={active}
                     className="h-10 rounded-lg px-3 data-[active=true]:bg-foreground data-[active=true]:text-background data-[active=true]:hover:bg-foreground data-[active=true]:hover:text-background"
                   >
-                    <item.icon className="size-[18px]" />
+                    <item.icon className="size-4.5" />
                     <span>{item.title}</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

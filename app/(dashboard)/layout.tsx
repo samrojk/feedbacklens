@@ -26,7 +26,38 @@ function DashboardLoading() {
   );
 }
 
-async function DashboardContent({
+type WorkspaceResult = Extract<
+  Awaited<ReturnType<typeof getUserWorkspace>>,
+  { success: true }
+>;
+
+function DashboardContent({
+  children,
+  result,
+  workspaceName,
+}: Readonly<{
+  children: React.ReactNode;
+  result: WorkspaceResult;
+  workspaceName: string;
+}>) {
+  return (
+    <>
+      <AppSidebar result={result} />
+
+      <SidebarInset className="min-h-0 overflow-hidden">
+        <AppHeader workspaceName={workspaceName} />
+
+        <main className="min-h-0 flex-1 overflow-y-auto bg-muted/30">
+          <div className="mx-auto w-full max-w-[1600px] p-5 md:p-8">
+            {children}
+          </div>
+        </main>
+      </SidebarInset>
+    </>
+  );
+}
+
+async function DashboardAccess({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -52,19 +83,9 @@ async function DashboardContent({
   }
 
   return (
-    <>
-      <AppSidebar result={result} />
-
-      <SidebarInset className="min-h-0 overflow-hidden">
-        <AppHeader />
-
-        <main className="min-h-0 flex-1 overflow-y-auto bg-muted/30">
-          <div className="mx-auto w-full max-w-[1600px] p-5 md:p-8">
-            {children}
-          </div>
-        </main>
-      </SidebarInset>
-    </>
+    <DashboardContent result={result} workspaceName={result.workspace.name}>
+      {children}
+    </DashboardContent>
   );
 }
 
@@ -77,7 +98,7 @@ export default function DashboardLayout({
     <TooltipProvider>
       <SidebarProvider className="h-svh min-h-0">
         <Suspense fallback={<DashboardLoading />}>
-          <DashboardContent>{children}</DashboardContent>
+          <DashboardAccess>{children}</DashboardAccess>
         </Suspense>
       </SidebarProvider>
     </TooltipProvider>

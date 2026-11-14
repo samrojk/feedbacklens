@@ -24,12 +24,7 @@ async function SettingsContent() {
   }
 
   return (
-    <SettingsForm
-      initialName={result.profileFullName || ""}
-      email={result.user.email ?? ""}
-      workspaceName={result.workspace.name}
-      role={result.role}
-    />
+    <SettingsForm workspaceName={result.workspace.name} role={result.role} />
   );
 }
 

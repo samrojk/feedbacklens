@@ -2,68 +2,63 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, ChevronRight, Layers3 } from "lucide-react";
+import { Bell, ChevronRight, Sparkles } from "lucide-react";
 
-const pageNames: Record<string, string> = {
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
+
+type Props = {
+  workspaceName: string;
+};
+
+const pageTitles: Record<string, string> = {
   "/overview": "Overview",
   "/feedback": "Import feedback",
   "/issues": "Issues",
+  "/settings": "Workspace settings",
+  "/profile": "Profile",
 };
 
-export function AppHeader() {
+export function AppHeader({ workspaceName }: Props) {
   const pathname = usePathname();
-  const currentPage = pageNames[pathname] ?? "FeedbackLens";
+
+  const pageTitle =
+    pageTitles[pathname] ??
+    (pathname.startsWith("/analyses/") ? "Analysis details" : "Workspace");
 
   return (
-    <header className="sticky top-0 z-20 border-b border-neutral-200/80 bg-white/90 backdrop-blur-xl">
-      <div className="flex h-17 items-center justify-between px-5 md:px-8">
-        {/* Mobile brand */}
-        <div className="flex items-center gap-2 md:hidden">
-          <Layers3 size={20} />
-          <span className="font-semibold tracking-tight">FeedbackLens</span>
-        </div>
+    <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:px-8">
+      <div className="flex min-w-0 items-center gap-3">
+        <SidebarTrigger className="md:hidden" />
 
-        {/* Breadcrumb */}
-        <div className="hidden items-center gap-2 text-sm md:flex">
-          <span className="text-neutral-400">Workspace</span>
-          <ChevronRight size={14} className="text-neutral-300" />
-          <span className="font-medium text-neutral-900">{currentPage}</span>
-        </div>
-
-        {/* Mobile page name */}
-        <span className="text-sm font-medium md:hidden">{currentPage}</span>
-
-        <div className="flex items-center gap-3">
-          <span className="hidden rounded-full border border-neutral-200 px-3 py-1.5 text-xs text-neutral-500 sm:inline-flex">
-            Feedback intelligence
+        <nav
+          aria-label="Breadcrumb"
+          className="flex min-w-0 items-center gap-2 text-sm"
+        >
+          <span className="max-w-40 truncate text-muted-foreground sm:max-w-none">
+            {workspaceName}
           </span>
 
-          <button
-            type="button"
-            aria-label="Notifications"
-            className="flex size-9 items-center justify-center rounded-full text-neutral-600 transition hover:bg-neutral-100"
-          >
-            <Bell size={18} />
-          </button>
-        </div>
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+
+          <span className="truncate font-medium">{pageTitle}</span>
+        </nav>
       </div>
 
-      {/* Mobile navigation */}
-      <nav className="flex gap-2 overflow-x-auto border-t border-neutral-100 px-4 py-2 md:hidden">
-        {Object.entries(pageNames).map(([href, label]) => (
-          <Link
-            key={href}
-            href={href}
-            className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-medium ${
-              pathname === href
-                ? "bg-neutral-950 text-white"
-                : "text-neutral-600 hover:bg-neutral-100"
-            }`}
-          >
-            {label}
-          </Link>
-        ))}
-      </nav>
+      <div className="flex shrink-0 items-center gap-4">
+        <div className="hidden items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium sm:flex bg-linear-to-r from-indigo-200 via-purple-200 to-pink-200">
+          <Sparkles className="size-3.5 text-primary" />
+          Gemini 3.5 Flash
+        </div>
+
+        <Link
+          href="/notifications"
+          aria-label="Notifications"
+          className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-muted"
+        >
+          <Bell className="size-4" />
+        </Link>
+      </div>
     </header>
   );
 }
