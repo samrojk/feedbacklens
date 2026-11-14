@@ -1,7 +1,9 @@
+
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowUpRight,
   LayoutDashboard,
@@ -9,8 +11,10 @@ import {
   Settings,
   Sparkles,
   Layers3,
-  LogOut,
   ChevronDown,
+  Check,
+  Loader2,
+  UserRound,
 } from "lucide-react";
 
 import {
@@ -25,9 +29,25 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
+type Workspace = {
+  id: string;
+  name: string;
+  role: string;
+};
+
 type Props = {
+  workspaceId: string;
   workspaceName: string;
   userName: string;
   userEmail: string;
@@ -38,15 +58,95 @@ const navigation = [
   { title: "Overview", url: "/overview", icon: LayoutDashboard },
   { title: "Import feedback", url: "/feedback", icon: MessageSquare },
   { title: "Issues", url: "/issues", icon: Layers3 },
+  { title: "Settings", url: "/settings", icon: Settings },
 ];
 
 export function AppSidebarClient({
+  workspaceId,
   workspaceName,
   userName,
   userEmail,
   role,
 }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [activeId, setActiveId] = useState(workspaceId);
+  const [switching, setSwitching] = useState(false);
+  const [loadingWorkspaces, setLoadingWorkspaces] = useState(true);
+  const [switchError, setSwitchError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadWorkspaces() {
+      try {
+        const response = await fetch("/api/workspaces", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error("Unable to load workspaces.");
+        }
+
+        const data = await response.json();
+
+        if (!cancelled) {
+          setWorkspaces(data.workspaces ?? []);
+          setActiveId(data.activeWorkspaceId ?? workspaceId);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setSwitchError(
+            error instanceof Error
+              ? error.message
+              : "Unable to load workspaces.",
+          );
+        }
+      } finally {
+        if (!cancelled) setLoadingWorkspaces(false);
+      }
+    }
+
+    loadWorkspaces();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId]);
+
+  async function switchWorkspace(nextWorkspace: Workspace) {
+    if (nextWorkspace.id === activeId || switching) return;
+
+    setSwitching(true);
+    setSwitchError("");
+
+    try {
+      const response = await fetch("/api/workspaces", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspaceId: nextWorkspace.id }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to switch workspace.");
+      }
+
+      setActiveId(nextWorkspace.id);
+      router.refresh();
+    } catch (error) {
+      setSwitchError(
+        error instanceof Error
+          ? error.message
+          : "Unable to switch workspace.",
+      );
+    } finally {
+      setSwitching(false);
+    }
+  }
 
   const initials =
     userName
@@ -56,6 +156,14 @@ export function AppSidebarClient({
       .map((part) => part[0])
       .join("")
       .toUpperCase() || "U";
+
+  const activeWorkspace =
+    workspaces.find((workspace) => workspace.id === activeId);
+
+  const displayedWorkspaceName =
+    activeWorkspace?.name ?? workspaceName;
+
+  const displayedRole = activeWorkspace?.role ?? role;
 
   return (
     <Sidebar collapsible="none" className="border-r bg-background">
@@ -69,18 +177,67 @@ export function AppSidebarClient({
           </span>
         </Link>
 
-        <div className="flex w-full items-center gap-3 rounded-xl border p-3">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-orange-50 text-orange-600">
-            <Layers3 className="size-5" />
-          </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            disabled={switching || loadingWorkspaces}
+            className="flex w-full items-center gap-3 rounded-xl border p-3 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-70"
+          >
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-orange-600">
+              <Layers3 className="size-5" />
+            </div>
 
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{workspaceName}</p>
-            <p className="text-xs text-muted-foreground">Workspace</p>
-          </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">
+                {displayedWorkspaceName}
+              </p>
+              <p className="text-xs capitalize text-muted-foreground">
+                {displayedRole} · Workspace
+              </p>
+            </div>
 
-          <ChevronDown className="size-4 text-muted-foreground" />
-        </div>
+            {switching || loadingWorkspaces ? (
+              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            ) : (
+              <ChevronDown className="size-4 text-muted-foreground" />
+            )}
+          </DropdownMenuTrigger>
+
+          <DropdownMenuContent align="start" className="w-64">
+            <DropdownMenuLabel>Your workspaces</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+
+            {workspaces.map((workspace) => (
+              <DropdownMenuItem
+                key={workspace.id}
+                onClick={() => switchWorkspace(workspace)}
+                className="cursor-pointer"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{workspace.name}</p>
+                  <p className="text-xs capitalize text-muted-foreground">
+                    {workspace.role}
+                  </p>
+                </div>
+
+                {workspace.id === activeId && (
+                  <Check className="size-4" />
+                )}
+              </DropdownMenuItem>
+            ))}
+
+            {workspaces.length === 0 && !loadingWorkspaces && (
+              <p className="px-2 py-3 text-sm text-muted-foreground">
+                No workspaces found.
+              </p>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {switchError && (
+          <p role="alert" className="text-xs text-destructive">
+            {switchError}
+          </p>
+        )}
       </SidebarHeader>
 
       <SidebarContent className="px-3">
@@ -133,35 +290,29 @@ export function AppSidebarClient({
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="gap-3 border-t p-4">
+      <SidebarFooter className="gap-2 border-t p-4">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              render={<Link href="/settings" />}
-              isActive={pathname === "/settings"}
+              render={<Link href="/profile" />}
+              isActive={pathname === "/profile"}
+              className="h-12"
             >
-              <Settings className="size-[18px]" />
-              <span>Settings</span>
+              <Avatar className="size-9">
+                <AvatarFallback>{initials}</AvatarFallback>
+              </Avatar>
+
+              <div className="min-w-0 flex-1 text-left">
+                <p className="truncate text-sm font-medium">{userName}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {userEmail}
+                </p>
+              </div>
+
+              <UserRound className="size-4 text-muted-foreground" />
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-
-        <div className="flex min-w-0 items-center gap-3 px-2 py-2">
-          <Avatar className="size-9">
-            <AvatarFallback>{initials}</AvatarFallback>
-          </Avatar>
-
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{userName}</p>
-            <p className="truncate text-xs text-muted-foreground">
-              {userEmail}
-            </p>
-          </div>
-
-          <span className="text-xs capitalize text-muted-foreground">
-            {role}
-          </span>
-        </div>
       </SidebarFooter>
     </Sidebar>
   );
