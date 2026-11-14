@@ -1,8 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Layers3, ShieldCheck, Save, Loader2, LockKeyhole } from "lucide-react";
+import {
+  Layers3,
+  ShieldCheck,
+  Save,
+  Loader2,
+  LockKeyhole,
+  Users,
+} from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -172,6 +180,15 @@ export function SettingsForm({ workspaceName, role }: Props) {
                 This name appears in your sidebar and dashboard breadcrumb.
               </p>
             </div>
+
+            <Button
+              className="mr-4"
+              variant="outline"
+              render={<Link href="/settings/members" />}
+            >
+              <Users className="mr-2 size-4" />
+              Manage members
+            </Button>
 
             {canManageWorkspace ? (
               <Button
