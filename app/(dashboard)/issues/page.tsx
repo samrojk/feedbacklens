@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { connection } from "next/server";
 import {
   Layers3,
   ArrowUpRight,
@@ -69,6 +70,9 @@ export default function IssuesPage() {
 }
 
 async function IssuesContent() {
+  // Supabase auth checks session expiry using the current time.
+  await connection();
+
   const workspaceResult = await getUserWorkspace();
 
   if (!workspaceResult.success) {

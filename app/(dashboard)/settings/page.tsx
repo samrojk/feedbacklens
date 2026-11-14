@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 
 import { getUserWorkspace } from "@/lib/supabase/get-workspace";
 import { SettingsForm } from "@/components/settings/settings-form";
@@ -8,6 +9,9 @@ export const metadata = {
 };
 
 async function SettingsContent() {
+  // Supabase auth checks session expiry using the current time.
+  await connection();
+
   const result = await getUserWorkspace();
 
   if (!result.success) {

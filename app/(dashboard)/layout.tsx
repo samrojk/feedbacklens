@@ -11,7 +11,7 @@ import { getUserWorkspace } from "@/lib/supabase/get-workspace";
 function DashboardLoading() {
   return (
     <div className="flex h-full min-h-0 w-full animate-pulse">
-      <div className="hidden w-[260px] shrink-0 border-r bg-background md:block" />
+      <div className="hidden w-65 shrink-0 border-r bg-background md:block" />
       <div className="flex-1 space-y-6 p-6 md:p-8">
         <div className="h-14 rounded-lg bg-muted" />
         <div className="h-8 w-48 rounded bg-muted" />
