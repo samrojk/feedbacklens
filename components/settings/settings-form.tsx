@@ -184,6 +184,7 @@ export function SettingsForm({ workspaceName, role }: Props) {
             <Button
               className="mr-4"
               variant="outline"
+              nativeButton={false}
               render={<Link href="/settings/members" />}
             >
               <Users className="mr-2 size-4" />
