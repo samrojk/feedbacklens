@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 
 type Props = {
   workspaceName: string;
+  modelName: string;
 };
 
 const pageTitles: Record<string, string> = {
@@ -19,7 +20,7 @@ const pageTitles: Record<string, string> = {
   "/profile": "Profile",
 };
 
-export function AppHeader({ workspaceName }: Props) {
+export function AppHeader({ workspaceName, modelName }: Props) {
   const pathname = usePathname();
 
   const pageTitle =
@@ -48,7 +49,7 @@ export function AppHeader({ workspaceName }: Props) {
       <div className="flex shrink-0 items-center gap-4">
         <div className="hidden items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium sm:flex bg-linear-to-r from-indigo-200 via-purple-200 to-pink-200">
           <Sparkles className="size-3.5 text-primary" />
-          Gemini 3.5 Flash
+          {modelName}
         </div>
 
         <Link

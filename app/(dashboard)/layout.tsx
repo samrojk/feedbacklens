@@ -7,6 +7,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppHeader } from "@/components/layout/app-header";
 import { getUserWorkspace } from "@/lib/supabase/get-workspace";
+import { AI_CONFIG } from "@/lib/ai/config";
 
 function DashboardLoading() {
   return (
@@ -45,7 +46,7 @@ function DashboardContent({
       <AppSidebar result={result} />
 
       <SidebarInset className="min-h-0 overflow-hidden">
-        <AppHeader workspaceName={workspaceName} />
+        <AppHeader workspaceName={workspaceName} modelName={AI_CONFIG.modelName}/>
 
         <main className="min-h-0 flex-1 overflow-y-auto bg-muted/30">
           <div className="mx-auto w-full max-w-[1600px] p-5 md:p-8">
