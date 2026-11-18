@@ -94,7 +94,7 @@ export function ProfileForm({ initialName, email }: Props) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-7">
+    <div className="space-y-7">
       <div>
         <p className="text-sm text-muted-foreground">Personal account</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Profile</h1>

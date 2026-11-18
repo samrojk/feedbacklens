@@ -69,7 +69,7 @@ async function MembersContent() {
   const canManageMembers = ["owner", "admin"].includes(currentUserRole);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-7">
+    <div className="space-y-7">
       <div>
         <p className="text-sm text-muted-foreground">Workspace management</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Members</h1>

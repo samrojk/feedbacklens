@@ -46,7 +46,7 @@ async function ProfileContent() {
 
 function ProfileLoading() {
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="space-y-5">
       <div className="h-8 w-40 animate-pulse rounded bg-muted" />
       <div className="h-48 animate-pulse rounded-xl bg-muted" />
       <div className="h-48 animate-pulse rounded-xl bg-muted" />
