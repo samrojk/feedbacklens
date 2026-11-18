@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Bell, ChevronRight, Sparkles } from "lucide-react";
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
+import { useWorkspace } from "@/components/layout/workspace-provider";
 
 type Props = {
   workspaceName: string;
@@ -17,11 +17,18 @@ const pageTitles: Record<string, string> = {
   "/feedback": "Import feedback",
   "/issues": "Issues",
   "/settings": "Workspace settings",
+  "/settings/members": "Workspace members",
   "/profile": "Profile",
+  "/notifications": "Notifications",
 };
 
 export function AppHeader({ workspaceName, modelName }: Props) {
   const pathname = usePathname();
+
+  const { activeWorkspace } = useWorkspace();
+
+  // Use the shared workspace state for instant updates.
+  const currentWorkspaceName = activeWorkspace?.name ?? workspaceName;
 
   const pageTitle =
     pageTitles[pathname] ??
@@ -29,6 +36,7 @@ export function AppHeader({ workspaceName, modelName }: Props) {
 
   return (
     <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:px-8">
+      {/* Breadcrumb */}
       <div className="flex min-w-0 items-center gap-3">
         <SidebarTrigger className="md:hidden" />
 
@@ -37,7 +45,7 @@ export function AppHeader({ workspaceName, modelName }: Props) {
           className="flex min-w-0 items-center gap-2 text-sm"
         >
           <span className="max-w-40 truncate text-muted-foreground sm:max-w-none">
-            {workspaceName}
+            {currentWorkspaceName}
           </span>
 
           <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
@@ -46,12 +54,15 @@ export function AppHeader({ workspaceName, modelName }: Props) {
         </nav>
       </div>
 
+      {/* Header actions */}
       <div className="flex shrink-0 items-center gap-4">
-        <div className="hidden items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium sm:flex bg-linear-to-r from-indigo-200 via-purple-200 to-pink-200">
+        {/* Active AI model */}
+        <div className="hidden items-center gap-2 rounded-full border bg-linear-to-r from-indigo-200 via-purple-200 to-pink-200 px-3 py-1.5 text-xs font-medium sm:flex">
           <Sparkles className="size-3.5 text-primary" />
           {modelName}
         </div>
 
+        {/* Notifications */}
         <Link
           href="/notifications"
           aria-label="Notifications"

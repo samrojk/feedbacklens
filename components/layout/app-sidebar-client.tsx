@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { WorkspaceSwitcher } from "@/components/layout/workspace-switcher";
 
 type Workspace = {
   id: string;
@@ -174,59 +175,7 @@ export function AppSidebarClient({
           </span>
         </Link>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            disabled={switching || loadingWorkspaces}
-            className="flex w-full items-center gap-3 rounded-xl border p-3 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-70"
-          >
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-orange-600">
-              <Layers3 className="size-5" />
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">
-                {displayedWorkspaceName}
-              </p>
-              <p className="text-xs capitalize text-muted-foreground">
-                {displayedRole} · Workspace
-              </p>
-            </div>
-
-            {switching || loadingWorkspaces ? (
-              <Loader2 className="size-4 animate-spin text-muted-foreground" />
-            ) : (
-              <ChevronDown className="size-4 text-muted-foreground" />
-            )}
-          </DropdownMenuTrigger>
-
-          <DropdownMenuContent align="start" className="w-64">
-            <DropdownMenuLabel>Your workspaces</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-
-            {workspaces.map((workspace) => (
-              <DropdownMenuItem
-                key={workspace.id}
-                onClick={() => switchWorkspace(workspace)}
-                className="cursor-pointer"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{workspace.name}</p>
-                  <p className="text-xs capitalize text-muted-foreground">
-                    {workspace.role}
-                  </p>
-                </div>
-
-                {workspace.id === activeId && <Check className="size-4" />}
-              </DropdownMenuItem>
-            ))}
-
-            {workspaces.length === 0 && !loadingWorkspaces && (
-              <p className="px-2 py-3 text-sm text-muted-foreground">
-                No workspaces found.
-              </p>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <WorkspaceSwitcher variant="sidebar" />
 
         {switchError && (
           <p role="alert" className="text-xs text-destructive">

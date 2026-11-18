@@ -3,6 +3,16 @@ import { connection } from "next/server";
 
 import { getUserWorkspace } from "@/lib/supabase/get-workspace";
 import { SettingsForm } from "@/components/settings/settings-form";
+import { WorkspaceSwitcher } from "@/components/layout/workspace-switcher";
+
+import { Layers } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 
 export const metadata = {
   title: "Settings",
@@ -42,6 +52,29 @@ export default function SettingsPage() {
   return (
     <Suspense fallback={<SettingsLoading />}>
       <SettingsContent />
+      <Card className="min-h-100 mt-6">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-muted p-2">
+              <Layers className="size-5" />
+            </div>
+            <div>
+              <CardTitle>Switch workspace</CardTitle>
+              <CardDescription>
+                Switch between workspaces you belong to.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent>
+          <WorkspaceSwitcher variant="settings"/>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Switching workspaces changes which workspace's feedback, analyses,
+            and settings you see.
+          </p>
+        </CardContent>
+      </Card>
     </Suspense>
   );
 }

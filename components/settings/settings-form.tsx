@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Layers3,
@@ -35,6 +35,13 @@ export function SettingsForm({ workspaceName, role }: Props) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  // Sync the input whenever the active workspace changes.
+  useEffect(() => {
+    setName(workspaceName);
+    setMessage("");
+    setError("");
+  }, [workspaceName]);
 
   const canManageWorkspace = ["owner", "admin"].includes(role);
 
@@ -80,7 +87,6 @@ export function SettingsForm({ workspaceName, role }: Props) {
 
       setMessage("Workspace updated successfully.");
 
-      // Refresh server components and workspace-aware navigation.
       router.refresh();
     } catch (err) {
       setError(
@@ -94,7 +100,7 @@ export function SettingsForm({ workspaceName, role }: Props) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-7">
+    <div className="space-y-6">
       <div>
         <p className="text-sm text-muted-foreground">Workspace preferences</p>
 
@@ -181,33 +187,36 @@ export function SettingsForm({ workspaceName, role }: Props) {
               </p>
             </div>
 
-            <Button
-              className="mr-4"
-              variant="outline"
-              nativeButton={false}
-              render={<Link href="/settings/members" />}
-            >
-              <Users className="mr-2 size-4" />
-              Manage members
-            </Button>
-
-            {canManageWorkspace ? (
+            <div className="flex flex-wrap items-center gap-3">
               <Button
-                type="submit"
-                disabled={
-                  loading ||
-                  name.trim().length < 2 ||
-                  name.trim() === workspaceName
-                }
+                variant="outline"
+                nativeButton={false}
+                render={<Link href="/settings/members" />}
               >
-                {loading ? (
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                ) : (
-                  <Save className="mr-2 size-4" />
-                )}
-                Save changes
+                <Users className="mr-2 size-4" />
+                Manage members
               </Button>
-            ) : (
+
+              {canManageWorkspace && (
+                <Button
+                  type="submit"
+                  disabled={
+                    loading ||
+                    name.trim().length < 2 ||
+                    name.trim() === workspaceName
+                  }
+                >
+                  {loading ? (
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 size-4" />
+                  )}
+                  Save changes
+                </Button>
+              )}
+            </div>
+
+            {!canManageWorkspace && (
               <div className="flex items-start gap-2 rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
                 <LockKeyhole className="mt-0.5 size-4 shrink-0" />
                 <p>

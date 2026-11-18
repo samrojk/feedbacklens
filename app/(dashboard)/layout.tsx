@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { WorkspaceProvider } from "@/components/layout/workspace-provider";
 
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppHeader } from "@/components/layout/app-header";
@@ -46,7 +47,10 @@ function DashboardContent({
       <AppSidebar result={result} />
 
       <SidebarInset className="min-h-0 overflow-hidden">
-        <AppHeader workspaceName={workspaceName} modelName={AI_CONFIG.modelName}/>
+        <AppHeader
+          workspaceName={workspaceName}
+          modelName={AI_CONFIG.modelName}
+        />
 
         <main className="min-h-0 flex-1 overflow-y-auto bg-muted/30">
           <div className="mx-auto w-full max-w-[1600px] p-5 md:p-8">
@@ -96,12 +100,14 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <TooltipProvider>
-      <SidebarProvider className="h-svh min-h-0">
-        <Suspense fallback={<DashboardLoading />}>
-          <DashboardAccess>{children}</DashboardAccess>
-        </Suspense>
-      </SidebarProvider>
-    </TooltipProvider>
+    <WorkspaceProvider>
+      <TooltipProvider>
+        <SidebarProvider className="h-svh min-h-0">
+          <Suspense fallback={<DashboardLoading />}>
+            <DashboardAccess>{children}</DashboardAccess>
+          </Suspense>
+        </SidebarProvider>
+      </TooltipProvider>
+    </WorkspaceProvider>
   );
 }

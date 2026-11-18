@@ -124,7 +124,7 @@ export default function FeedbackPage() {
   const invalidCount = result?.errors?.length ?? 0;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
+    <div className="space-y-8">
       {/* Heading */}
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
