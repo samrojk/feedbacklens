@@ -88,9 +88,13 @@ async function DashboardAccess({
   }
 
   return (
-    <DashboardContent result={result} workspaceName={result.workspace.name}>
-      {children}
-    </DashboardContent>
+    <WorkspaceProvider
+      initialWorkspace={{ ...result.workspace, role: result.role }}
+    >
+      <DashboardContent result={result} workspaceName={result.workspace.name}>
+        {children}
+      </DashboardContent>
+    </WorkspaceProvider>
   );
 }
 
@@ -100,14 +104,12 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <WorkspaceProvider>
-      <TooltipProvider>
-        <SidebarProvider className="h-svh min-h-0">
-          <Suspense fallback={<DashboardLoading />}>
-            <DashboardAccess>{children}</DashboardAccess>
-          </Suspense>
-        </SidebarProvider>
-      </TooltipProvider>
-    </WorkspaceProvider>
+    <TooltipProvider>
+      <SidebarProvider className="h-svh min-h-0">
+        <Suspense fallback={<DashboardLoading />}>
+          <DashboardAccess>{children}</DashboardAccess>
+        </Suspense>
+      </SidebarProvider>
+    </TooltipProvider>
   );
 }

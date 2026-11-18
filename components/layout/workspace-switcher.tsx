@@ -11,7 +11,7 @@ type Props = {
 export function WorkspaceSwitcher({ variant = "sidebar" }: Props) {
   const [open, setOpen] = useState(false);
 
-  const { workspaces, activeWorkspace, loading, switching, switchWorkspace } =
+  const { workspaces, activeWorkspace, switching, switchWorkspace } =
     useWorkspace();
 
   async function handleSwitch(id: string) {
@@ -24,7 +24,7 @@ export function WorkspaceSwitcher({ variant = "sidebar" }: Props) {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        disabled={loading || switching}
+        disabled={switching}
         aria-expanded={open}
         aria-haspopup="listbox"
         className={
@@ -40,9 +40,7 @@ export function WorkspaceSwitcher({ variant = "sidebar" }: Props) {
 
           <span className="min-w-0">
             <span className="block truncate text-sm font-medium">
-              {loading
-                ? "Loading workspaces..."
-                : (activeWorkspace?.name ?? "Select workspace")}
+              {activeWorkspace?.name ?? "Select workspace"}
             </span>
             <span className="block text-xs capitalize text-muted-foreground">
               {activeWorkspace

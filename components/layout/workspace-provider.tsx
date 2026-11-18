@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -20,19 +21,29 @@ type Workspace = {
 type WorkspaceContextType = {
   workspaces: Workspace[];
   activeWorkspace: Workspace | null;
-  loading: boolean;
   switching: boolean;
   switchWorkspace: (id: string) => Promise<void>;
+  updateActiveWorkspaceName: (name: string) => void;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextType | null>(null);
 
-export function WorkspaceProvider({ children }: { children: ReactNode }) {
+export function WorkspaceProvider({
+  children,
+  initialWorkspace,
+}: {
+  children: ReactNode;
+  initialWorkspace: Workspace;
+}) {
   const router = useRouter();
 
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [activeId, setActiveId] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([
+    initialWorkspace,
+  ]);
+  const [activeId, setActiveId] = useState(initialWorkspace.id);
+  const initialWorkspaceRef = useRef(initialWorkspace);
+  const activeIdRef = useRef(initialWorkspace.id);
+  const switchingRef = useRef(false);
   const [switching, setSwitching] = useState(false);
 
   const loadWorkspaces = useCallback(async () => {
@@ -47,14 +58,26 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         throw new Error(data.error || "Failed to load workspaces.");
       }
 
-      setWorkspaces(data.workspaces ?? []);
-      setActiveId(data.activeWorkspaceId ?? "");
+      const loadedWorkspaces: Workspace[] = data.workspaces ?? [];
+      setWorkspaces((currentWorkspaces) => {
+        const currentActive =
+          currentWorkspaces.find(
+            (workspace) => workspace.id === activeIdRef.current,
+          ) ?? initialWorkspaceRef.current;
+        const activeIsLoaded = loadedWorkspaces.some(
+          (workspace) => workspace.id === currentActive.id,
+        );
+
+        return activeIsLoaded
+          ? loadedWorkspaces.map((workspace) =>
+              workspace.id === currentActive.id ? currentActive : workspace,
+            )
+          : [currentActive, ...loadedWorkspaces];
+      });
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Could not load workspaces.",
       );
-    } finally {
-      setLoading(false);
     }
   }, []);
 
@@ -64,15 +87,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const switchWorkspace = useCallback(
     async (workspaceId: string) => {
-      if (workspaceId === activeId || switching) return;
+      if (workspaceId === activeIdRef.current || switchingRef.current) return;
 
-      const previousId = activeId;
+      const previousId = activeIdRef.current;
       const nextWorkspace = workspaces.find((w) => w.id === workspaceId);
 
       if (!nextWorkspace) return;
 
-      // Update the shared UI immediately.
+      activeIdRef.current = workspaceId;
       setActiveId(workspaceId);
+      switchingRef.current = true;
       setSwitching(true);
 
       try {
@@ -93,17 +117,31 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         // Refresh server-rendered data using the new workspace.
         router.refresh();
       } catch (error) {
-        // Restore the previous workspace if the API fails.
+        activeIdRef.current = previousId;
         setActiveId(previousId);
 
         toast.error(
           error instanceof Error ? error.message : "Workspace switch failed.",
         );
       } finally {
+        switchingRef.current = false;
         setSwitching(false);
       }
     },
-    [activeId, switching, workspaces, router],
+    [workspaces, router],
+  );
+
+  const updateActiveWorkspaceName = useCallback(
+    (name: string) => {
+      setWorkspaces((currentWorkspaces) =>
+        currentWorkspaces.map((workspace) =>
+          workspace.id === activeIdRef.current
+            ? { ...workspace, name }
+            : workspace,
+        ),
+      );
+    },
+    [],
   );
 
   const activeWorkspace =
@@ -114,9 +152,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       value={{
         workspaces,
         activeWorkspace,
-        loading,
         switching,
         switchWorkspace,
+        updateActiveWorkspaceName,
       }}
     >
       {children}

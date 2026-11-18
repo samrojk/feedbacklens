@@ -22,6 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useWorkspace } from "@/components/layout/workspace-provider";
 
 type Props = {
   workspaceName: string;
@@ -30,20 +31,30 @@ type Props = {
 
 export function SettingsForm({ workspaceName, role }: Props) {
   const router = useRouter();
+  const { activeWorkspace, updateActiveWorkspaceName } = useWorkspace();
+  const currentWorkspaceName = activeWorkspace?.name ?? workspaceName;
+  const currentRole = activeWorkspace?.role ?? role;
+  const activeWorkspaceId = activeWorkspace?.id ?? "";
 
-  const [name, setName] = useState(workspaceName);
+  const [nameDraft, setNameDraft] = useState({
+    workspaceId: activeWorkspaceId,
+    name: currentWorkspaceName,
+  });
+  const name =
+    nameDraft.workspaceId === activeWorkspaceId
+      ? nameDraft.name
+      : currentWorkspaceName;
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  // Sync the input whenever the active workspace changes.
   useEffect(() => {
-    setName(workspaceName);
+    setNameDraft({ workspaceId: activeWorkspaceId, name: currentWorkspaceName });
     setMessage("");
     setError("");
-  }, [workspaceName]);
+  }, [activeWorkspaceId, currentWorkspaceName]);
 
-  const canManageWorkspace = ["owner", "admin"].includes(role);
+  const canManageWorkspace = ["owner", "admin"].includes(currentRole);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -57,7 +68,7 @@ export function SettingsForm({ workspaceName, role }: Props) {
       return;
     }
 
-    if (trimmedName === workspaceName) {
+    if (trimmedName === currentWorkspaceName) {
       setMessage("No changes to save.");
       setError("");
       return;
@@ -85,6 +96,8 @@ export function SettingsForm({ workspaceName, role }: Props) {
         throw new Error(data.error || "Unable to update workspace.");
       }
 
+      updateActiveWorkspaceName(trimmedName);
+      setNameDraft({ workspaceId: activeWorkspaceId, name: trimmedName });
       setMessage("Workspace updated successfully.");
 
       router.refresh();
@@ -162,7 +175,7 @@ export function SettingsForm({ workspaceName, role }: Props) {
               </div>
 
               <Badge variant="secondary" className="capitalize">
-                {role}
+                {currentRole}
               </Badge>
             </div>
 
@@ -174,7 +187,12 @@ export function SettingsForm({ workspaceName, role }: Props) {
               <Input
                 id="workspace-name"
                 value={name}
-                onChange={(event) => setName(event.target.value)}
+                onChange={(event) =>
+                  setNameDraft({
+                    workspaceId: activeWorkspaceId,
+                    name: event.target.value,
+                  })
+                }
                 placeholder="Enter workspace name"
                 minLength={2}
                 maxLength={100}
@@ -203,7 +221,7 @@ export function SettingsForm({ workspaceName, role }: Props) {
                   disabled={
                     loading ||
                     name.trim().length < 2 ||
-                    name.trim() === workspaceName
+                    name.trim() === currentWorkspaceName
                   }
                 >
                   {loading ? (
