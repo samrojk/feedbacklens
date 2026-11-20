@@ -34,7 +34,7 @@ async function getCachedWorkspace(workspaceId: string) {
 
   const { data, error } = await supabase
     .from("workspaces")
-    .select("id, name")
+    .select("id, name, deletion_scheduled_for")
     .eq("id", workspaceId)
     .maybeSingle();
 

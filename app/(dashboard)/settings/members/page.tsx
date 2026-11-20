@@ -5,6 +5,7 @@ import { Users, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase/server";
 import { getUserWorkspace } from "@/lib/supabase/get-workspace";
 import { InviteMemberForm } from "@/components/settings/invite-member-form";
+import { MemberActions } from "@/components/settings/member-actions";
 
 import {
   Card,
@@ -165,9 +166,12 @@ async function MembersContent() {
                       </p>
                     </div>
 
-                    <Badge variant="outline" className="capitalize">
-                      {member.role}
-                    </Badge>
+                    <MemberActions
+                      userId={member.user_id}
+                      memberRole={member.role}
+                      currentRole={currentUserRole}
+                      isSelf={member.user_id === result.user.id}
+                    />
                   </div>
                 );
               })}

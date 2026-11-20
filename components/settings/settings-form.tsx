@@ -24,13 +24,19 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useWorkspace } from "@/components/layout/workspace-provider";
+import { WorkspaceDeletion } from "@/components/settings/workspace-deletion";
 
 type Props = {
   workspaceName: string;
   role: string;
+  deletionScheduledFor: string | null;
 };
 
-export function SettingsForm({ workspaceName, role }: Props) {
+export function SettingsForm({
+  workspaceName,
+  role,
+  deletionScheduledFor,
+}: Props) {
   const router = useRouter();
   const { activeWorkspace, updateActiveWorkspaceName } = useWorkspace();
   const currentWorkspaceName = activeWorkspace?.name ?? workspaceName;
@@ -260,6 +266,11 @@ export function SettingsForm({ workspaceName, role }: Props) {
           </form>
         </CardContent>
       </Card>
+
+      <WorkspaceDeletion
+        role={currentRole}
+        deletionScheduledFor={deletionScheduledFor}
+      />
     </div>
   );
 }

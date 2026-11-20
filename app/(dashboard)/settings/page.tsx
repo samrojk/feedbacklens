@@ -34,7 +34,11 @@ async function SettingsContent() {
   }
 
   return (
-    <SettingsForm workspaceName={result.workspace.name} role={result.role} />
+    <SettingsForm
+      workspaceName={result.workspace.name}
+      role={result.role}
+      deletionScheduledFor={result.workspace.deletion_scheduled_for}
+    />
   );
 }
 
@@ -68,7 +72,7 @@ export default function SettingsPage() {
         </CardHeader>
 
         <CardContent>
-          <WorkspaceSwitcher variant="settings"/>
+          <WorkspaceSwitcher variant="settings" />
           <p className="mt-3 text-xs text-muted-foreground">
             Switching workspaces changes which workspace's feedback, analyses,
             and settings you see.
