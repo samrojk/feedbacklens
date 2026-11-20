@@ -73,9 +73,8 @@ async function DashboardAccess({
   const result = await getUserWorkspace();
 
   if (!result.success) {
-    if (result.status === 401) {
-      redirect("/login");
-    }
+    if (result.status === 401) redirect("/login");
+    if (result.status === 403) redirect("/workspace-setup");
 
     return (
       <main className="flex min-h-full flex-1 items-center justify-center p-6">

@@ -17,9 +17,17 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      return NextResponse.redirect(
-        new URL(invitationId ? "/invitations" : redirectTo, url.origin),
-      );
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const destination = invitationId
+        ? "/invitations"
+        : user?.user_metadata?.workspace_name?.trim()
+          ? "/overview"
+          : "/workspace-setup";
+
+      return NextResponse.redirect(new URL(destination, url.origin));
     }
   }
 

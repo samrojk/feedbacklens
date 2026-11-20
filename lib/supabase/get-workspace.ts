@@ -75,27 +75,15 @@ export const getUserWorkspace = cache(async function getUserWorkspace() {
     };
   }
 
-  const workspaceId = profile?.default_workspace_id;
+  let workspaceId = profile?.default_workspace_id ?? null;
 
-  if (!workspaceId) {
-    return {
-      success: false as const,
-      status: 403,
-      error: "No default workspace configured",
-    };
-  }
-
-  // Membership is always checked on the current request.
-  const membershipResult = await supabase
+  const { data: memberships, error: membershipError } = await supabase
     .from("workspace_members")
     .select("workspace_id, role")
-    .eq("workspace_id", workspaceId)
-    .eq("user_id", user.id)
-    .maybeSingle();
+    .eq("user_id", user.id);
 
-  if (membershipResult.error) {
-    console.error("Membership lookup failed:", membershipResult.error);
-
+  if (membershipError) {
+    console.error("Membership lookup failed:", membershipError);
     return {
       success: false as const,
       status: 500,
@@ -103,14 +91,37 @@ export const getUserWorkspace = cache(async function getUserWorkspace() {
     };
   }
 
-  const membership = membershipResult.data;
-
-  if (!membership) {
+  if (!memberships?.length) {
     return {
       success: false as const,
       status: 403,
-      error: "You do not have access to your default workspace",
+      error: "No workspace membership",
     };
+  }
+
+  // Keep the current workspace if membership still exists.
+  // Otherwise automatically select another available workspace.
+  let membership = memberships.find(
+    (item) => item.workspace_id === workspaceId,
+  );
+
+  if (!membership) {
+    membership = memberships[0];
+    workspaceId = membership.workspace_id;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ default_workspace_id: workspaceId })
+      .eq("id", user.id);
+
+    if (error) {
+      console.error("Workspace fallback update failed:", error);
+      return {
+        success: false as const,
+        status: 500,
+        error: "Unable to switch workspace",
+      };
+    }
   }
 
   let profileFullName: string | null;
