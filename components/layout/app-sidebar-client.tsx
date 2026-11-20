@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   ArrowUpRight,
   LayoutDashboard,
@@ -10,9 +9,6 @@ import {
   Settings,
   Sparkles,
   Layers3,
-  ChevronDown,
-  Check,
-  Loader2,
   UserRound,
 } from "lucide-react";
 
@@ -40,18 +36,9 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { WorkspaceSwitcher } from "@/components/layout/workspace-switcher";
 
-type Workspace = {
-  id: string;
-  name: string;
-  role: string;
-};
-
 type Props = {
-  workspaceId: string;
-  workspaceName: string;
   userName: string;
   userEmail: string;
-  role: string;
 };
 
 const navigation = [
@@ -62,89 +49,10 @@ const navigation = [
 ];
 
 export function AppSidebarClient({
-  workspaceId,
-  workspaceName,
   userName,
   userEmail,
-  role,
 }: Props) {
   const pathname = usePathname();
-  const router = useRouter();
-
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [activeId, setActiveId] = useState(workspaceId);
-  const [switching, setSwitching] = useState(false);
-  const [loadingWorkspaces, setLoadingWorkspaces] = useState(true);
-  const [switchError, setSwitchError] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadWorkspaces() {
-      try {
-        const response = await fetch("/api/workspaces", {
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          throw new Error("Unable to load workspaces.");
-        }
-
-        const data = await response.json();
-
-        if (!cancelled) {
-          setWorkspaces(data.workspaces ?? []);
-          setActiveId(data.activeWorkspaceId ?? workspaceId);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setSwitchError(
-            error instanceof Error
-              ? error.message
-              : "Unable to load workspaces.",
-          );
-        }
-      } finally {
-        if (!cancelled) setLoadingWorkspaces(false);
-      }
-    }
-
-    loadWorkspaces();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [workspaceId]);
-
-  async function switchWorkspace(nextWorkspace: Workspace) {
-    if (nextWorkspace.id === activeId || switching) return;
-
-    setSwitching(true);
-    setSwitchError("");
-
-    try {
-      const response = await fetch("/api/workspaces", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspaceId: nextWorkspace.id }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Unable to switch workspace.");
-      }
-
-      setActiveId(nextWorkspace.id);
-      router.refresh();
-    } catch (error) {
-      setSwitchError(
-        error instanceof Error ? error.message : "Unable to switch workspace.",
-      );
-    } finally {
-      setSwitching(false);
-    }
-  }
 
   const initials =
     userName
@@ -154,14 +62,6 @@ export function AppSidebarClient({
       .map((part) => part[0])
       .join("")
       .toUpperCase() || "U";
-
-  const activeWorkspace = workspaces.find(
-    (workspace) => workspace.id === activeId,
-  );
-
-  const displayedWorkspaceName = activeWorkspace?.name ?? workspaceName;
-
-  const displayedRole = activeWorkspace?.role ?? role;
 
   return (
     <Sidebar collapsible="none" className="border-r bg-background">
@@ -176,12 +76,6 @@ export function AppSidebarClient({
         </Link>
 
         <WorkspaceSwitcher variant="sidebar" />
-
-        {switchError && (
-          <p role="alert" className="text-xs text-destructive">
-            {switchError}
-          </p>
-        )}
       </SidebarHeader>
 
       <SidebarContent className="px-3">

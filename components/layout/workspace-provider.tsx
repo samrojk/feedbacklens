@@ -44,41 +44,53 @@ export function WorkspaceProvider({
   const initialWorkspaceRef = useRef(initialWorkspace);
   const activeIdRef = useRef(initialWorkspace.id);
   const switchingRef = useRef(false);
+  const loadWorkspacesPromiseRef = useRef<Promise<void> | null>(null);
   const [switching, setSwitching] = useState(false);
 
   const loadWorkspaces = useCallback(async () => {
-    try {
-      const response = await fetch("/api/workspaces", {
-        cache: "no-store",
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to load workspaces.");
-      }
-
-      const loadedWorkspaces: Workspace[] = data.workspaces ?? [];
-      setWorkspaces((currentWorkspaces) => {
-        const currentActive =
-          currentWorkspaces.find(
-            (workspace) => workspace.id === activeIdRef.current,
-          ) ?? initialWorkspaceRef.current;
-        const activeIsLoaded = loadedWorkspaces.some(
-          (workspace) => workspace.id === currentActive.id,
-        );
-
-        return activeIsLoaded
-          ? loadedWorkspaces.map((workspace) =>
-              workspace.id === currentActive.id ? currentActive : workspace,
-            )
-          : [currentActive, ...loadedWorkspaces];
-      });
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Could not load workspaces.",
-      );
+    if (loadWorkspacesPromiseRef.current) {
+      return loadWorkspacesPromiseRef.current;
     }
+
+    const request = (async () => {
+      try {
+        const response = await fetch("/api/workspaces", {
+          cache: "no-store",
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to load workspaces.");
+        }
+
+        const loadedWorkspaces: Workspace[] = data.workspaces ?? [];
+        setWorkspaces((currentWorkspaces) => {
+          const currentActive =
+            currentWorkspaces.find(
+              (workspace) => workspace.id === activeIdRef.current,
+            ) ?? initialWorkspaceRef.current;
+          const activeIsLoaded = loadedWorkspaces.some(
+            (workspace) => workspace.id === currentActive.id,
+          );
+
+          return activeIsLoaded
+            ? loadedWorkspaces.map((workspace) =>
+                workspace.id === currentActive.id ? currentActive : workspace,
+              )
+            : [currentActive, ...loadedWorkspaces];
+        });
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Could not load workspaces.",
+        );
+      } finally {
+        loadWorkspacesPromiseRef.current = null;
+      }
+    })();
+
+    loadWorkspacesPromiseRef.current = request;
+    return request;
   }, []);
 
   useEffect(() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Bell,
@@ -15,11 +15,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { useWorkspace } from "@/components/layout/workspace-provider";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { NOTIFICATIONS_UPDATED_EVENT } from "@/lib/notifications/events";
 
 type Notification = {
   id: string;
@@ -99,43 +101,79 @@ function formatTime(date: string) {
 }
 
 export function NotificationBell() {
+  const { activeWorkspace, switching } = useWorkspace();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [markingAll, setMarkingAll] = useState(false);
   const [open, setOpen] = useState(false);
+  const requestsRef = useRef(new Map<string, Promise<void>>());
+  const activeWorkspaceIdRef = useRef(activeWorkspace?.id ?? null);
+  activeWorkspaceIdRef.current = activeWorkspace?.id ?? null;
 
-  const fetchNotifications = useCallback(async () => {
-    try {
-      const response = await fetch("/api/notifications", {
-        cache: "no-store",
-      });
+  const fetchNotifications = useCallback((workspaceId: string) => {
+    const existingRequest = requestsRef.current.get(workspaceId);
 
-      if (!response.ok) {
-        throw new Error("Unable to fetch notifications.");
+    if (existingRequest) return existingRequest;
+
+    const request = (async () => {
+      try {
+        const response = await fetch("/api/notifications", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error("Unable to fetch notifications.");
+        }
+
+        const data: NotificationResponse = await response.json();
+
+        if (activeWorkspaceIdRef.current === workspaceId) {
+          setNotifications(data.notifications ?? []);
+          setUnreadCount(data.unreadCount ?? 0);
+        }
+      } catch (error) {
+        console.error("Notification fetch error:", error);
+      } finally {
+        if (activeWorkspaceIdRef.current === workspaceId) {
+          setLoading(false);
+        }
+        requestsRef.current.delete(workspaceId);
       }
+    })();
 
-      const data: NotificationResponse = await response.json();
-
-      setNotifications(data.notifications ?? []);
-      setUnreadCount(data.unreadCount ?? 0);
-    } catch (error) {
-      console.error("Notification fetch error:", error);
-    } finally {
-      setLoading(false);
-    }
+    requestsRef.current.set(workspaceId, request);
+    return request;
   }, []);
 
   useEffect(() => {
-    void fetchNotifications();
+    if (!activeWorkspace?.id || switching) return;
 
-    const interval = window.setInterval(() => {
-      void fetchNotifications();
-    }, 60000);
+    setNotifications([]);
+    setUnreadCount(0);
+    setLoading(true);
+    void fetchNotifications(activeWorkspace.id);
+  }, [activeWorkspace?.id, fetchNotifications, switching]);
 
-    return () => window.clearInterval(interval);
-  }, [fetchNotifications]);
+  useEffect(() => {
+    function handleNotificationsUpdated() {
+      const workspaceId = activeWorkspaceIdRef.current;
+      if (workspaceId && !switching) void fetchNotifications(workspaceId);
+    }
+
+    window.addEventListener(
+      NOTIFICATIONS_UPDATED_EVENT,
+      handleNotificationsUpdated,
+    );
+
+    return () => {
+      window.removeEventListener(
+        NOTIFICATIONS_UPDATED_EVENT,
+        handleNotificationsUpdated,
+      );
+    };
+  }, [fetchNotifications, switching]);
 
   async function markAsRead(id: string) {
     const notification = notifications.find((item) => item.id === id);
@@ -215,7 +253,9 @@ export function NotificationBell() {
       open={open}
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen);
-        if (nextOpen) void fetchNotifications();
+        if (nextOpen && activeWorkspace?.id && !switching) {
+          void fetchNotifications(activeWorkspace.id);
+        }
       }}
     >
       <DropdownMenuTrigger

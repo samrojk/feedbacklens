@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { NOTIFICATIONS_UPDATED_EVENT } from "@/lib/notifications/events";
 
 type UploadResult = {
   analysisId?: string;
@@ -98,6 +99,7 @@ export default function FeedbackPage() {
 
       setResult(payload);
       setState("success");
+      window.dispatchEvent(new Event(NOTIFICATIONS_UPDATED_EVENT));
     } catch (err) {
       setError(
         err instanceof Error

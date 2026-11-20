@@ -14,11 +14,8 @@ export function AppSidebar({ result }: Props) {
 
   return (
     <AppSidebarClient
-      workspaceId={result.workspaceId}
-      workspaceName={result.workspace.name}
       userName={userName}
       userEmail={result.user.email ?? ""}
-      role={result.role}
     />
   );
 }

@@ -6,8 +6,8 @@ export async function GET(request: NextRequest) {
 
   const code = url.searchParams.get("code");
   const next = url.searchParams.get("next");
+  const invitationId = url.searchParams.get("invitation_id");
 
-  // Prevent external redirect attacks
   const redirectTo =
     next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
 
@@ -17,7 +17,9 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      return NextResponse.redirect(new URL(redirectTo, url.origin));
+      return NextResponse.redirect(
+        new URL(invitationId ? "/invitations" : redirectTo, url.origin),
+      );
     }
   }
 

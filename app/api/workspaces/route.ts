@@ -9,12 +9,19 @@ const switchSchema = z.object({
   workspaceId: z.string().uuid(),
 });
 
+function privateNoStoreJson(body: unknown, status?: number) {
+  return NextResponse.json(body, {
+    status,
+    headers: { "Cache-Control": "private, no-store" },
+  });
+}
+
 export async function GET() {
   try {
     const user = await getAuthenticatedUser();
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return privateNoStoreJson({ error: "Unauthorized" }, 401);
     }
 
     const [
@@ -41,7 +48,7 @@ export async function GET() {
     );
 
     if (workspaceIds.length === 0) {
-      return NextResponse.json({
+      return privateNoStoreJson({
         workspaces: [],
         activeWorkspaceId: null,
       });
@@ -61,7 +68,7 @@ export async function GET() {
       ]),
     );
 
-    return NextResponse.json({
+    return privateNoStoreJson({
       workspaces: (workspaces ?? []).map((workspace) => ({
         ...workspace,
         role: roleMap.get(workspace.id),
@@ -72,9 +79,9 @@ export async function GET() {
     unstable_rethrow(error);
     console.error("Workspace listing failed:", error);
 
-    return NextResponse.json(
+    return privateNoStoreJson(
       { error: "Unable to load workspaces." },
-      { status: 500 },
+      500,
     );
   }
 }
