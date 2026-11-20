@@ -22,8 +22,9 @@ export async function GET() {
     .order("created_at", { ascending: false });
 
   if (error) {
+    console.error("Fetch invitations error:", error);
     return NextResponse.json(
-      { error: "Could not fetch invitations" },
+      { error: "Could not fetch invitations." },
       { status: 500 },
     );
   }
@@ -50,10 +51,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let invitationId: string | null = null;
+
   try {
     const body = await request.json();
+
     const email =
       typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+
     const role = body.role;
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -63,14 +68,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!allowedRoles.includes(role)) {
+    if (
+      typeof role !== "string" ||
+      !allowedRoles.includes(role as (typeof allowedRoles)[number])
+    ) {
       return NextResponse.json(
         { error: "Invalid member role." },
         { status: 400 },
       );
     }
 
-    // Admins cannot invite other admins.
     if (currentRole === "admin" && role === "admin") {
       return NextResponse.json(
         { error: "Only workspace owners can invite admins." },
@@ -79,7 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Prevent duplicate pending invitations.
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from("workspace_invitations")
       .select("id")
       .eq("workspace_id", workspaceId)
@@ -88,6 +95,8 @@ export async function POST(request: NextRequest) {
       .gt("expires_at", new Date().toISOString())
       .maybeSingle();
 
+    if (existingError) throw existingError;
+
     if (existing) {
       return NextResponse.json(
         { error: "An active invitation already exists for this email." },
@@ -95,7 +104,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create the invitation record first.
+    // Create invitation record.
     const { data: invitation, error: insertError } = await supabase
       .from("workspace_invitations")
       .insert({
@@ -108,13 +117,99 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (insertError || !invitation) {
+      throw insertError ?? new Error("Could not create invitation.");
+    }
+
+    invitationId = invitation.id;
+
+    // Check whether this email already belongs to a FeedbackLens account.
+    let existingUser: { id: string } | null = null;
+
+    for (let page = 1; page <= 10; page++) {
+      const { data, error } = await supabase.auth.admin.listUsers({
+        page,
+        perPage: 1000,
+      });
+
+      if (error) throw error;
+
+      const match = data.users.find(
+        (account) => account.email?.toLowerCase() === email,
+      );
+
+      if (match) {
+        existingUser = { id: match.id };
+        break;
+      }
+
+      if (data.users.length < 1000) break;
+    }
+
+    // Existing users can be added directly.
+    if (existingUser) {
+      const { data: membership, error: membershipError } = await supabase
+        .from("workspace_members")
+        .select("id")
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", existingUser.id)
+        .maybeSingle();
+
+      if (membershipError) throw membershipError;
+
+      if (membership) {
+        await supabase
+          .from("workspace_invitations")
+          .delete()
+          .eq("id", invitation.id);
+
+        invitationId = null;
+
+        return NextResponse.json(
+          { error: "This user is already a member of the workspace." },
+          { status: 409 },
+        );
+      }
+
+      const { error: addMemberError } = await supabase
+        .from("workspace_members")
+        .insert({
+          workspace_id: workspaceId,
+          user_id: existingUser.id,
+          role,
+        });
+
+      if (addMemberError) throw addMemberError;
+
+      // Mark invitation as accepted after adding the member.
+      const { error: updateInvitationError } = await supabase
+        .from("workspace_invitations")
+        .update({ status: "accepted" })
+        .eq("id", invitation.id);
+
+      if (updateInvitationError) {
+        // Roll back membership if invitation update fails.
+        await supabase
+          .from("workspace_members")
+          .delete()
+          .eq("workspace_id", workspaceId)
+          .eq("user_id", existingUser.id);
+
+        throw updateInvitationError;
+      }
+
+      invitationId = null;
+
       return NextResponse.json(
-        { error: "Could not create invitation." },
-        { status: 500 },
+        {
+          success: true,
+          message: `${email} has been added to the workspace.`,
+          existingUser: true,
+        },
+        { status: 200 },
       );
     }
 
-    // Send the invitation using Supabase Auth.
+    // New users receive an email invitation.
     const callbackUrl = new URL("/auth/callback", request.url);
     callbackUrl.searchParams.set("invitation_id", invitation.id);
 
@@ -128,14 +223,9 @@ export async function POST(request: NextRequest) {
       },
     );
 
-    if (inviteError) {
-      await supabase
-        .from("workspace_invitations")
-        .delete()
-        .eq("id", invitation.id);
+    if (inviteError) throw inviteError;
 
-      return NextResponse.json({ error: inviteError.message }, { status: 400 });
-    }
+    invitationId = null;
 
     return NextResponse.json(
       {
@@ -145,7 +235,17 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 },
     );
-  } catch {
+  } catch (error) {
+    console.error("Workspace invitation error:", error);
+
+    // Clean up the pending invitation if the operation failed.
+    if (invitationId) {
+      await supabase
+        .from("workspace_invitations")
+        .delete()
+        .eq("id", invitationId);
+    }
+
     return NextResponse.json(
       { error: "Something went wrong while sending the invitation." },
       { status: 500 },
