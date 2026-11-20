@@ -21,7 +21,10 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { NOTIFICATIONS_UPDATED_EVENT } from "@/lib/notifications/events";
+import {
+  INVITATIONS_UPDATED_EVENT,
+  NOTIFICATIONS_UPDATED_EVENT,
+} from "@/lib/notifications/events";
 
 type Notification = {
   id: string;
@@ -45,6 +48,21 @@ type Notification = {
 type NotificationResponse = {
   notifications: Notification[];
   unreadCount: number;
+};
+
+type PendingInvitation = {
+  id: string;
+  workspace_id: string;
+  workspaceName: string;
+  email: string;
+  role: string;
+  expires_at: string;
+  created_at: string;
+};
+
+type PendingInvitationResponse = {
+  invitations: PendingInvitation[];
+  error?: string;
 };
 
 function getNotificationIcon(type: Notification["type"]) {
@@ -104,11 +122,17 @@ export function NotificationBell() {
   const { activeWorkspace, switching } = useWorkspace();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [pendingInvitations, setPendingInvitations] = useState<
+    PendingInvitation[]
+  >([]);
   const [loading, setLoading] = useState(true);
+  const [pendingInvitationsLoading, setPendingInvitationsLoading] =
+    useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [markingAll, setMarkingAll] = useState(false);
   const [open, setOpen] = useState(false);
   const requestsRef = useRef(new Map<string, Promise<void>>());
+  const pendingInvitationsRequestRef = useRef<Promise<void> | null>(null);
   const activeWorkspaceIdRef = useRef(activeWorkspace?.id ?? null);
   activeWorkspaceIdRef.current = activeWorkspace?.id ?? null;
 
@@ -147,6 +171,38 @@ export function NotificationBell() {
     return request;
   }, []);
 
+  const fetchPendingInvitations = useCallback(() => {
+    if (pendingInvitationsRequestRef.current) {
+      return pendingInvitationsRequestRef.current;
+    }
+
+    const request = (async () => {
+      try {
+        const response = await fetch("/api/workspace-invitations/pending", {
+          cache: "no-store",
+        });
+        const data: PendingInvitationResponse = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Unable to load invitations.");
+        }
+
+        setPendingInvitations(data.invitations ?? []);
+      } catch (error) {
+        console.error("Pending invitation fetch error:", error);
+        toast.error(
+          error instanceof Error ? error.message : "Unable to load invitations.",
+        );
+      } finally {
+        setPendingInvitationsLoading(false);
+        pendingInvitationsRequestRef.current = null;
+      }
+    })();
+
+    pendingInvitationsRequestRef.current = request;
+    return request;
+  }, []);
+
   useEffect(() => {
     if (!activeWorkspace?.id || switching) return;
 
@@ -155,6 +211,10 @@ export function NotificationBell() {
     setLoading(true);
     void fetchNotifications(activeWorkspace.id);
   }, [activeWorkspace?.id, fetchNotifications, switching]);
+
+  useEffect(() => {
+    void fetchPendingInvitations();
+  }, [fetchPendingInvitations]);
 
   useEffect(() => {
     function handleNotificationsUpdated() {
@@ -174,6 +234,43 @@ export function NotificationBell() {
       );
     };
   }, [fetchNotifications, switching]);
+
+  useEffect(() => {
+    function handleInvitationsUpdated() {
+      void fetchPendingInvitations();
+    }
+
+    window.addEventListener(
+      INVITATIONS_UPDATED_EVENT,
+      handleInvitationsUpdated,
+    );
+
+    return () => {
+      window.removeEventListener(
+        INVITATIONS_UPDATED_EVENT,
+        handleInvitationsUpdated,
+      );
+    };
+  }, [fetchPendingInvitations]);
+
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState !== "visible") return;
+
+      const workspaceId = activeWorkspaceIdRef.current;
+      if (workspaceId && !switching) {
+        void fetchNotifications(workspaceId);
+      }
+
+      void fetchPendingInvitations();
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [fetchNotifications, fetchPendingInvitations, switching]);
 
   async function markAsRead(id: string) {
     const notification = notifications.find((item) => item.id === id);
@@ -248,11 +345,33 @@ export function NotificationBell() {
     }
   }
 
+  const pendingInvitationIds = new Set(
+    pendingInvitations.map((invitation) => invitation.id),
+  );
+  const duplicateInvitationNotificationIds = new Set(
+    notifications
+      .filter(
+        (notification) =>
+          notification.type === "invitation" &&
+          typeof notification.metadata?.invitationId === "string" &&
+          pendingInvitationIds.has(notification.metadata.invitationId),
+      )
+      .map((notification) => notification.id),
+  );
+  const displayedNotifications = notifications.filter(
+    (notification) => !duplicateInvitationNotificationIds.has(notification.id),
+  );
+  const displayedUnreadCount = displayedNotifications.filter(
+    (notification) => !notification.read_at,
+  ).length;
+  const badgeCount = displayedUnreadCount + pendingInvitations.length;
+
   return (
     <DropdownMenu
       open={open}
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen);
+        if (nextOpen) void fetchPendingInvitations();
         if (nextOpen && activeWorkspace?.id && !switching) {
           void fetchNotifications(activeWorkspace.id);
         }
@@ -264,9 +383,9 @@ export function NotificationBell() {
       >
         <Bell className="size-4.5" />
 
-        {unreadCount > 0 && (
+        {badgeCount > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex min-w-4.5 items-center justify-center rounded-full border-2 border-background bg-red-500 px-1 text-[9px] font-semibold leading-4 text-white">
-            {unreadCount > 99 ? "99+" : unreadCount}
+            {badgeCount > 99 ? "99+" : badgeCount}
           </span>
         )}
       </DropdownMenuTrigger>
@@ -280,9 +399,14 @@ export function NotificationBell() {
           <div>
             <h3 className="text-sm font-semibold">Notifications</h3>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {unreadCount > 0
-                ? `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}`
-                : "You're all caught up"}
+              {displayedUnreadCount > 0 &&
+                `${displayedUnreadCount} unread notification${displayedUnreadCount === 1 ? "" : "s"}`}
+              {displayedUnreadCount > 0 && pendingInvitations.length > 0 && " · "}
+              {pendingInvitations.length > 0 &&
+                `${pendingInvitations.length} pending invitation${pendingInvitations.length === 1 ? "" : "s"}`}
+              {displayedUnreadCount === 0 &&
+                pendingInvitations.length === 0 &&
+                "You're all caught up"}
             </p>
           </div>
 
@@ -304,12 +428,47 @@ export function NotificationBell() {
         </div>
 
         <div className="max-h-105 overflow-y-auto">
-          {loading ? (
+          {!loading &&
+            !pendingInvitationsLoading &&
+            pendingInvitations.map((invitation) => (
+              <div
+                key={invitation.id}
+                className="group relative flex gap-3 border-b bg-muted/30 px-4 py-3 transition-colors"
+              >
+                <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  <Users className="size-4" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium leading-5">
+                    Workspace invitation
+                  </p>
+                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                    Join {invitation.workspaceName} as {invitation.role}.
+                  </p>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-muted-foreground">
+                      {formatTime(invitation.created_at)}
+                    </span>
+                    <Link
+                      href="/invitations"
+                      onClick={() => setOpen(false)}
+                      className="text-[11px] font-semibold text-primary hover:underline"
+                    >
+                      Review invitation
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+          {loading || pendingInvitationsLoading ? (
             <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
               Loading notifications...
             </div>
-          ) : notifications.length === 0 ? (
+          ) : displayedNotifications.length === 0 &&
+            pendingInvitations.length === 0 ? (
             <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
               <div className="mb-3 flex size-11 items-center justify-center rounded-full bg-muted">
                 <Bell className="size-5 text-muted-foreground" />
@@ -320,7 +479,7 @@ export function NotificationBell() {
               </p>
             </div>
           ) : (
-            notifications.slice(0, 20).map((notification) => {
+            displayedNotifications.slice(0, 20).map((notification) => {
               const Icon = getNotificationIcon(notification.type);
               const isUnread = !notification.read_at;
               const isUpdating = updatingId === notification.id;

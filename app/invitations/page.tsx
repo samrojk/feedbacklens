@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, X, Loader2, Mail, Users } from "lucide-react";
 import { toast } from "sonner";
+import { INVITATIONS_UPDATED_EVENT } from "@/lib/notifications/events";
 
 type Invitation = {
   id: string;
@@ -75,6 +76,7 @@ export default function InvitationsPage() {
       setInvitations((current) =>
         current.filter((item) => item.id !== invitationId),
       );
+      window.dispatchEvent(new Event(INVITATIONS_UPDATED_EVENT));
 
       if (action === "accept") {
         router.push("/overview");

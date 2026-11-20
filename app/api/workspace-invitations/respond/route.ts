@@ -76,10 +76,19 @@ export async function POST(request: NextRequest) {
     if (memberCheckError) throw memberCheckError;
 
     if (existingMember) {
-      return NextResponse.json(
-        { error: "You are already a member of this workspace." },
-        { status: 409 },
-      );
+      // Remove this stale invitation; the user already has access.
+      const { error: deleteError } = await supabase
+        .from("workspace_invitations")
+        .delete()
+        .eq("id", invitation.id);
+
+      if (deleteError) throw deleteError;
+
+      return NextResponse.json({
+        success: true,
+        status: "already_member",
+        message: "You already belong to this workspace.",
+      });
     }
 
     const { error: insertError } = await supabase
@@ -91,6 +100,21 @@ export async function POST(request: NextRequest) {
       });
 
     if (insertError) throw insertError;
+
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .update({ default_workspace_id: invitation.workspace_id })
+      .eq("id", user.id);
+
+    if (profileError) {
+      await supabase
+        .from("workspace_members")
+        .delete()
+        .eq("workspace_id", invitation.workspace_id)
+        .eq("user_id", user.id);
+
+      throw profileError;
+    }
 
     const { error: acceptError } = await supabase
       .from("workspace_invitations")

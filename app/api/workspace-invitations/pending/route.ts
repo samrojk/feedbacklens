@@ -2,11 +2,18 @@ import { NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/supabase/get-user";
 import { supabase } from "@/lib/supabase/server";
 
+function privateNoStoreJson(body: unknown, status?: number) {
+  return NextResponse.json(body, {
+    status,
+    headers: { "Cache-Control": "private, no-store" },
+  });
+}
+
 export async function GET() {
   const user = await getAuthenticatedUser();
 
   if (!user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return privateNoStoreJson({ error: "Unauthorized" }, 401);
   }
 
   const { data: invitations, error } = await supabase
@@ -19,10 +26,7 @@ export async function GET() {
 
   if (error) {
     console.error("Pending invitations lookup failed:", error);
-    return NextResponse.json(
-      { error: "Unable to load invitations." },
-      { status: 500 },
-    );
+    return privateNoStoreJson({ error: "Unable to load invitations." }, 500);
   }
 
   const workspaceIds = [
@@ -37,9 +41,10 @@ export async function GET() {
     : { data: [], error: null };
 
   if (workspaceError) {
-    return NextResponse.json(
+    console.error("Pending invitation workspace lookup failed:", workspaceError);
+    return privateNoStoreJson(
       { error: "Unable to load workspace details." },
-      { status: 500 },
+      500,
     );
   }
 
@@ -47,7 +52,7 @@ export async function GET() {
     (workspaces ?? []).map((workspace) => [workspace.id, workspace.name]),
   );
 
-  return NextResponse.json({
+  return privateNoStoreJson({
     invitations: (invitations ?? []).map((invitation) => ({
       ...invitation,
       workspaceName: workspaceNames.get(invitation.workspace_id) ?? "Workspace",
