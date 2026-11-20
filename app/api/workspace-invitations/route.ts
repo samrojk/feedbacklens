@@ -157,6 +157,13 @@ export async function POST(request: NextRequest) {
       if (membershipError) throw membershipError;
 
       if (membership) {
+        await supabase
+          .from("workspace_invitations")
+          .delete()
+          .eq("id", invitation.id);
+
+        invitationId = null;
+
         return NextResponse.json(
           { error: "This user is already a workspace member." },
           { status: 409 },

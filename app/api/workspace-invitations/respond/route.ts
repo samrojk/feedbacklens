@@ -14,6 +14,18 @@ export async function POST(request: NextRequest) {
     const invitationId = body.invitationId;
     const action = body.action;
 
+    if (action === "decline") {
+      const { error: declineError } = await supabase
+        .from("workspace_invitations")
+        .update({ status: "declined" })
+        .eq("id", invitation.id)
+        .eq("status", "pending");
+
+      if (declineError) throw declineError;
+
+      return NextResponse.json({ success: true, status: "declined" });
+    }
+
     if (
       typeof invitationId !== "string" ||
       !["accept", "decline"].includes(action)
@@ -52,18 +64,6 @@ export async function POST(request: NextRequest) {
         { error: "This invitation has expired." },
         { status: 410 },
       );
-    }
-
-    if (action === "decline") {
-      const { error: declineError } = await supabase
-        .from("workspace_invitations")
-        .update({ status: "declined" })
-        .eq("id", invitation.id)
-        .eq("status", "pending");
-
-      if (declineError) throw declineError;
-
-      return NextResponse.json({ success: true, status: "declined" });
     }
 
     const { data: existingMember, error: memberCheckError } = await supabase
