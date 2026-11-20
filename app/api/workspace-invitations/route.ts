@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserWorkspace } from "@/lib/supabase/get-workspace";
 import { supabase } from "@/lib/supabase/server";
+import { createNotification } from "@/lib/notifications/create-notification";
 
 const allowedRoles = ["admin", "member", "viewer"] as const;
 
@@ -145,7 +146,6 @@ export async function POST(request: NextRequest) {
       if (data.users.length < 1000) break;
     }
 
-    // Existing users can be added directly.
     if (existingUser) {
       const { data: membership, error: membershipError } = await supabase
         .from("workspace_members")
@@ -157,56 +157,29 @@ export async function POST(request: NextRequest) {
       if (membershipError) throw membershipError;
 
       if (membership) {
-        await supabase
-          .from("workspace_invitations")
-          .delete()
-          .eq("id", invitation.id);
-
-        invitationId = null;
-
         return NextResponse.json(
-          { error: "This user is already a member of the workspace." },
+          { error: "This user is already a workspace member." },
           { status: 409 },
         );
       }
 
-      const { error: addMemberError } = await supabase
-        .from("workspace_members")
-        .insert({
-          workspace_id: workspaceId,
-          user_id: existingUser.id,
-          role,
-        });
-
-      if (addMemberError) throw addMemberError;
-
-      // Mark invitation as accepted after adding the member.
-      const { error: updateInvitationError } = await supabase
-        .from("workspace_invitations")
-        .update({ status: "accepted" })
-        .eq("id", invitation.id);
-
-      if (updateInvitationError) {
-        // Roll back membership if invitation update fails.
-        await supabase
-          .from("workspace_members")
-          .delete()
-          .eq("workspace_id", workspaceId)
-          .eq("user_id", existingUser.id);
-
-        throw updateInvitationError;
-      }
+      await createNotification({
+        workspaceId,
+        userId: existingUser.id,
+        type: "invitation",
+        title: "Workspace invitation",
+        message: `You've been invited to join a workspace as ${role}.`,
+        actionUrl: "/invitations",
+        metadata: { invitationId: invitation.id, role },
+      });
 
       invitationId = null;
 
-      return NextResponse.json(
-        {
-          success: true,
-          message: `${email} has been added to the workspace.`,
-          existingUser: true,
-        },
-        { status: 200 },
-      );
+      return NextResponse.json({
+        success: true,
+        message: `Invitation sent to ${email}.`,
+        invitationId: invitation.id,
+      });
     }
 
     // New users receive an email invitation.
