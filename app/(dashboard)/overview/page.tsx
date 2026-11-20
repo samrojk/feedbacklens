@@ -29,6 +29,8 @@ export const metadata = {
   title: "Overview",
 };
 
+export const instant = false;
+
 type Priority = "critical" | "high" | "medium" | "low";
 type Sentiment = "positive" | "negative" | "neutral";
 
