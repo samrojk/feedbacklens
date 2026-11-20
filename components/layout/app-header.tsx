@@ -6,6 +6,7 @@ import { Bell, ChevronRight, Sparkles } from "lucide-react";
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useWorkspace } from "@/components/layout/workspace-provider";
+import { NotificationBell } from "@/components/layout/notification-bell";
 
 type Props = {
   workspaceName: string;
@@ -63,13 +64,7 @@ export function AppHeader({ workspaceName, modelName }: Props) {
         </div>
 
         {/* Notifications */}
-        <Link
-          href="/notifications"
-          aria-label="Notifications"
-          className="flex size-9 items-center justify-center rounded-full transition-colors hover:bg-muted"
-        >
-          <Bell className="size-4" />
-        </Link>
+        <NotificationBell />
       </div>
     </header>
   );
