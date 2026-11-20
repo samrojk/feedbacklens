@@ -4,6 +4,7 @@ import { persistAnalysis } from "@/lib/supabase/persist";
 import { parseFeedbackCSV } from "@/lib/csv/parser";
 import { analyzeFeedback } from "@/lib/ai/analyze";
 import { getUserWorkspace } from "@/lib/supabase/get-workspace";
+import { createNotification } from "@/lib/notifications/create-notification";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_FEEDBACK_ENTRIES = 50;
@@ -112,6 +113,21 @@ export async function POST(request: NextRequest) {
       analysis,
       title: file.name.replace(/\.csv$/i, ""),
       workspaceId: workspaceResult.workspaceId,
+    });
+
+    await createNotification({
+      workspaceId: workspaceResult.workspaceId,
+      userId: workspaceResult.user.id,
+      type: "analysis",
+      severity: "success",
+      title: "Analysis completed",
+      message: `${result.validRows} feedback entries analyzed successfully.`,
+      actionUrl: `/analyses/${analysisId}`,
+      metadata: {
+        analysisId,
+        clusterCount,
+        feedbackCount: result.validRows,
+      },
     });
 
     // 7. Preserve original feedback sources
