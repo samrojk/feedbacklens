@@ -10,6 +10,7 @@ import {
   Loader2,
   LockKeyhole,
   Users,
+  Bell,
 } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
@@ -49,7 +50,10 @@ export function SettingsForm({ workspaceName, role }: Props) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setNameDraft({ workspaceId: activeWorkspaceId, name: currentWorkspaceName });
+    setNameDraft({
+      workspaceId: activeWorkspaceId,
+      name: currentWorkspaceName,
+    });
     setMessage("");
     setError("");
   }, [activeWorkspaceId, currentWorkspaceName]);
@@ -213,6 +217,15 @@ export function SettingsForm({ workspaceName, role }: Props) {
               >
                 <Users className="mr-2 size-4" />
                 Manage members
+              </Button>
+
+              <Button
+                variant="outline"
+                nativeButton={false}
+                render={<Link href="/settings/notifications" />}
+              >
+                <Bell className="mr-2 size-4" />
+                Notification preferences
               </Button>
 
               {canManageWorkspace && (
